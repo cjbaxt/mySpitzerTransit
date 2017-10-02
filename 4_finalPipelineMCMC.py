@@ -423,14 +423,14 @@ resultsfile.close()
 # Plot the final parameters
 parameter_plots(resultsfilepath, fitted_params, "Mean", planet, plotPublished, publishedDataFile, saveplot = True, foldext = foldext)
 
-sigma_sec_PLD, nsigma_PLD = t0check(resultsfilepath, 'Mean','PLD', coeffs_dict_PLD['per'], coeffs_dict_PLD['per_err'])
+sigma_sec_PLD, nsigma_PLD = t0check(resultsfilepath, 'Mean', 'PLD', coeffs_dict_PLD['per'], coeffs_dict_PLD['per_err'])
 
 print "\nChecking timing for PLD..."
 print "\tSigma = {:.2f} seconds".format(sigma_sec_PLD)
 print "\tNsigma between t0s = {:.2f}".format(nsigma_PLD)
 
 
-sigma_sec_poly, nsigma_poly = t0check(resultsfilepath, 'Mean','poly', coeffs_dict_poly['per'], coeffs_dict_poly['per_err'])
+sigma_sec_poly, nsigma_poly = t0check(resultsfilepath, 'Mean', 'poly', coeffs_dict_poly['per'], coeffs_dict_poly['per_err'])
 
 print "\nChecking timing for poly..."
 print "\tSigma = {:.2f} seconds".format(sigma_sec_poly)
