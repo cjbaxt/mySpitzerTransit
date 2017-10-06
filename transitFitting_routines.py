@@ -1581,21 +1581,28 @@ def weightedMean(averages, stddevs):
     ndatapoints = averages.shape[0]
 
     try:
+        # There might be some problems with this part of the code
         nparams = averages.shape[1]
         weighted_means = np.zeros(nparams)
         total_stddevs = np.zeros(nparams)
         for i in range(nparams):
-            weighted_mean = np.sum(averages[i]/stddevs[i]**2, axis = 0)/ np.sum(1./stddevs[i]**2, axis =0)
+            stddevs2 = np.zeros(stddevs[i].shape[1])
+                for j in range(len(stddevs[i].T)):
+                stddevs2[j] = stddevs[i].T[j].max()
+            weighted_mean = np.sum(averages[i]/stddevs2**2, axis = 0)/ np.sum(1./stddevs2**2, axis = 0)
             weighted_means[i] = weighted_mean
-            fdis2 =  np.sum( ((averages[i] - weighted_mean)**2) / ((stddevs[i]**2) * (ndatapoints - 1))  , axis =0)
-            total_variance = fdis2 * (1 / np.sum(1/(stddevs[i]**2), axis =0) )
+            fdis2 =  np.sum( ((averages[i] - weighted_mean)**2) / ((stddevs2**2) * (ndatapoints - 1))  , axis =0)
+            total_variance = fdis2 * (1 / np.sum(1/(stddevs2**2), axis =0) )
         total_stddevs[i] = np.sqrt(total_variance)
         return weighted_means, total_stddevs
 
     except:
-        weighted_mean = np.sum(averages/stddevs**2, axis = 0)/ np.sum(1./stddevs**2, axis =0)
-        fdis2 =  np.sum( ((averages - weighted_mean)**2) / ((stddevs**2) * (ndatapoints - 1))  , axis =0)
-        total_variance = fdis2 * (1 / np.sum(1/(stddevs**2), axis =0) )
+        stddevs2 = np.zeros(stddevs.shape[1])
+        for j in range(len(stddevs.T)):
+            stddevs2[j] = stddevs.T[j].max()
+        weighted_mean = np.sum(averages/stddevs2**2, axis = 0)/ np.sum(1./stddevs2**2, axis = 0)
+        fdis2 =  np.sum( ((averages - weighted_mean)**2) / ((stddevs2**2) * (ndatapoints - 1))  , axis =0)
+        total_variance = fdis2 * (1 / np.sum(1/(stddevs2**2), axis =0) )
         total_stddev = np.sqrt(total_variance)
         return weighted_mean, total_stddev
 
@@ -1797,7 +1804,7 @@ def parameter_plots(result_file, fitted_params, resultType, planet, plotPublishe
             ch2PLDStds = np.array([[float(line[e+1+p*Nvalues]),float(line[e+p*Nvalues])] for line in inputData if 'ch2' in line and 'PLD' in line]).T
 
         # Calculate the weighted means...
-        if len(ch1polyMean) > 1.:
+        if len(ch1polyMean) > 1. and param != 't0':
             WMch1poly, TSch1poly = weightedMean(np.array(ch1polyMean), np.array(ch1polyStds))
             WMch1PLD, TSch1PLD = weightedMean(np.array(ch1PLDMean), np.array(ch1PLDStds))
             WMch2poly, TSch2poly = weightedMean(np.array(ch2polyMean), np.array(ch2polyStds))
@@ -1831,11 +1838,11 @@ def parameter_plots(result_file, fitted_params, resultType, planet, plotPublishe
         ax2.set_xticklabels(ch2polyAORs, rotation='vertical')
 
         # Plot the weighted means
-        if len(ch1polyMean) > 1.:
+        if len(ch1polyMean) > 1. and param != 't0':
             ax1.axhline(WMch1poly, color = 'b')
             ax1.axhspan(WMch1poly - TSch1poly,
                       WMch1poly + TSch1poly,
-                      alpha = 0.3, color='b',label='Weighted Mean')
+                      alpha = 0.3, color='b', label='Weighted Mean')
             ax1.axhline(WMch1PLD, color = 'r')
             ax1.axhspan(WMch1PLD - TSch1PLD,
                       WMch1PLD + TSch1PLD,

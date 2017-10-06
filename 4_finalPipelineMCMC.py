@@ -419,7 +419,6 @@ for i in range(len(PP)):
 
 resultsfile.close()
 
-
 # Plot the final parameters
 parameter_plots(resultsfilepath, fitted_params, "Mean", planet, plotPublished, publishedDataFile, saveplot = True, foldext = foldext)
 
