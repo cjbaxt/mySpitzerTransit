@@ -536,7 +536,8 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
                radius_photom,
                sigma_clip_phot, iters_photom, nframes_photom,
                x0guess = None, y0guess = None,
-               size_bkg_box = None, radius_bkg_ann = None, size_bkg_ann = None, size_cent_bary = None, quiet = False,  passenger57 = False,
+               size_bkg_box = None, radius_bkg_ann = None, size_bkg_ann = None,
+               size_cent_bary = None, quiet = False,  passenger57 = False,
                plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = ''):
                # Must be sigma_clip_phot because function is called sigma_clip_photom!!!
     """
@@ -1587,7 +1588,7 @@ def weightedMean(averages, stddevs):
         total_stddevs = np.zeros(nparams)
         for i in range(nparams):
             stddevs2 = np.zeros(stddevs[i].shape[1])
-                for j in range(len(stddevs[i].T)):
+            for j in range(len(stddevs[i].T)):
                 stddevs2[j] = stddevs[i].T[j].max()
             weighted_mean = np.sum(averages[i]/stddevs2**2, axis = 0)/ np.sum(1./stddevs2**2, axis = 0)
             weighted_means[i] = weighted_mean
@@ -1714,6 +1715,7 @@ def pipelineOptPlots(planet, channel, method, AOR, sampleLabels, saveplots = Tru
         plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_GRID_Corner.png".format(planet, AOR, channel,method,foldext, os.getenv('HOME')),bbox_inches='tight')
     plt.close()
 
+
 def parameter_plots(result_file, fitted_params, resultType, planet, plotPublished = False, publishedDataFile = None, saveplot=True, foldext=''):
 
     """
@@ -1806,7 +1808,7 @@ def parameter_plots(result_file, fitted_params, resultType, planet, plotPublishe
         # Calculate the weighted means...
         if len(ch1polyMean) > 1. and param != 't0':
             WMch1poly, TSch1poly = weightedMean(np.array(ch1polyMean), np.array(ch1polyStds))
-            WMch1PLD, TSch1PLD = weightedMean(np.array(ch1PLDMean), np.array(ch1PLDStds))
+            WMch1PLD, TSch1PLD = weightedMean(np.array(ch1PLDMean).flatten(), np.array(ch1PLDStds))
             WMch2poly, TSch2poly = weightedMean(np.array(ch2polyMean), np.array(ch2polyStds))
             WMch2PLD, TSch2PLD = weightedMean(np.array(ch2PLDMean), np.array(ch2PLDStds))
 
@@ -1977,6 +1979,7 @@ def parameter_plots(result_file, fitted_params, resultType, planet, plotPublishe
     else:
         pass
     f2.close()
+
 
 def compare_parameter_plots(result_file, result_file_eccentric, fitted_params, resultType, planet,
                     plotPublished = False, publishedDataFile = None, saveplot=True, foldext=''):
