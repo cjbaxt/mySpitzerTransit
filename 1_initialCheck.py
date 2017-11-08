@@ -25,6 +25,8 @@ from transitFitting_routines import *
 sys.path.insert(1, '{}/PhD/code/'.format(os.getenv('HOME')))
 from ProgressBar import *
 
+print "this is the development version"
+
 # Get input file
 try:
     inFile = sys.argv[1]
