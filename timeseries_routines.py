@@ -18,6 +18,8 @@ from scipy.optimize import minimize
 from scipy.optimize import minimize_scalar
 import matplotlib.pyplot as plt
 
+#This is a test edit of a new branch 
+
 # Class for calculating the standard deviation of the aperture photometry for
 # finding the best radius value. This function currently just assumes that the
 # lightcurve would be a straight line, this is not right and thus this feature
