@@ -100,6 +100,14 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
 
         bounds = [[-np.inf]*(len(fittable_coeffs_labels)), [np.inf]*(len(fittable_coeffs_labels))]
 
+        if 't_secondary' in fittable_coeffs_labels:
+            ind = np.where(np.array(fittable_coeffs_labels) == 't_secondary')
+            ind = ind[0][0]
+            bounds[0][ind], bounds[1][ind] = t[0], t[-1]
+            if 't0' in fittable_coeffs_labels:
+                ind = np.where(np.array(fittable_coeffs_labels) == 't0')
+                ind = ind[0][0]
+                bounds[0][ind], bounds[1][ind] = t[0]-coeffs_dict['per']/2., t[-1]-coeffs_dict['per']/2.
         if 't0' in fittable_coeffs_labels:
             ind = np.where(np.array(fittable_coeffs_labels) == 't0')
             ind = ind[0][0]

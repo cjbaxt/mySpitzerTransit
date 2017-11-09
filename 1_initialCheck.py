@@ -111,7 +111,7 @@ for m in range(len(AORs)):
 
     AOR = AORs[m]
     channel = channels[m]
-    coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = t0s[m], t0s[m]
+    coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
