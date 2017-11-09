@@ -1105,7 +1105,7 @@ def lnprob_PLD(theta, t, Pns, lc, lcerrs, bounds,
     if not np.isfinite(lp): return -np.inf
     if np.isnan(lp): return -np.inf
 
-    return lp + lnlike_PLD(theta, t, Pns, lc, lcerrs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, , eclipse = eclipse)
+    return lp + lnlike_PLD(theta, t, Pns, lc, lcerrs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse = eclipse)
 
 def lnlike_PLD(theta, t, Pns, lc, lcerrs,
                coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse = False):

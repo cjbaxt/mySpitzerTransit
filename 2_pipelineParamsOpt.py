@@ -32,11 +32,11 @@ inputData = np.genfromtxt(inFile, dtype=None, delimiter=': ', comments='#')
 planet = inputData[0][1]
 AORs = inputData[1][1].split(', ')
 channels = inputData[2][1].split(', ')
-t0s = inputData[3][1].split(', ')
-cutstarts = [float(x) for x in inputData[4][1].split(', ')]
-cutends = [float(x) for x in inputData[5][1].split(', ')]
-posGuess = [float(x) for x in inputData[6][1].split(', ')]
-print posGuess
+eclipses = inputData[3][1].split(', ')
+t0s = inputData[4][1].split(', ')
+cutstarts = [float(x) for x in inputData[5][1].split(', ')]
+cutends = [float(x) for x in inputData[6][1].split(', ')]
+posGuess = [float(x) for x in inputData[7][1].split(', ')]
 ldlaw = inputData[int(np.where(inputData.T[0]=='limb_dark')[0])][1]
 foldext = raw_input("Provide folder extension (hit ENTER for None): ")
 
@@ -46,14 +46,24 @@ f.write("method, AOR, channel, chi2, bgk_method, bkg_boxsize, bkg_annradius, bkg
 
 for m in range(len(AORs)):
 
+    if 'E' in eclipses[m]:
+        eclipse = True
+    else:
+        eclipse = False
+
     star_params = {'Teff':0,'logg':0,'z':0,'Tefferr':0,'loggerr':0,'zerr':0}
     for key in star_params:
         star_params[key] = float(inputData[int(np.where(inputData.T[0]==key)[0])][1])
 
     # Create a dictionary of the polynomial parameters...
-    coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
-                   'K1', 'K2', 'K3', 'K4', 'K5',
-                   'f', 'g', 'h')
+    if eclipse:
+        coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark', 'fp', 't_secondary',
+                       'K1', 'K2', 'K3', 'K4', 'K5',
+                       'f', 'g', 'h')
+    else:
+        coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'K1', 'K2', 'K3', 'K4', 'K5',
+                       'f', 'g', 'h')
 
     coeffs_dict_poly = dict()
     for label in coeffs_tuple_poly:
@@ -70,9 +80,15 @@ for m in range(len(AORs)):
     fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     # Create a dictionary of the PLD paramters...
-    coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
-                   'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
-                   'g', 'h')
+    if eclipse:
+        coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark', 'fp', 't_secondary',
+                       'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+                       'g', 'h')
+    else:
+        coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+                       'g', 'h')
+
     coeffs_dict_PLD = dict()
     for label in coeffs_tuple_PLD:
         if label != 'u':
@@ -86,8 +102,6 @@ for m in range(len(AORs)):
 
     # and a list of PLD parameters to fix
     fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
-
-
 
     AOR = AORs[m]
     channel = channels[m]
@@ -200,7 +214,7 @@ for m in range(len(AORs)):
                 x, y = centroids_red[:,1], centroids_red[:,0]
 
                 #POLYNOMIAL
-                result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc)
+                result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
                 popt = result.x
 
                 # Update coeffs_dict so that it uses values from previous iteration
@@ -215,14 +229,15 @@ for m in range(len(AORs)):
                 plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params,
                                     x=x,y=y, errors = False, binsize = 50,
                                     name = planet, channel = channel, orbit = AOR, savefile = True, TT_hjd = None,
-                                    method = "poly", color = 'b', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext)
+                                    method = "poly", color = 'b', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext, eclipse = eclipse)
 
                 # Save the least squares polynomial result to an array so we can plot a corer plot
                 for l in range(len(popt)):
                     samples_poly[count][l] = popt[l]
 
                 #PLD
-                result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries_red, centroids_red, lc)
+                result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD,
+                                                                    fix_coeffs_PLD, t, timeseries_red, centroids_red, lc, eclipse = eclipse)
                 popt_PLD = result_PLD.x
 
                 # for key in coeffs_dict_PLD.keys():
@@ -236,7 +251,7 @@ for m in range(len(AORs)):
                 plot_lightcurve(t,  lc, lcerr, popt_PLD, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
                                     Pns = Pns, errors = False, binsize = 50,
                                     name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
-                                    method = "PLD", color = 'r', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext)
+                                    method = "PLD", color = 'r', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext, eclipse = eclipse)
 
                 # Save the least squares PLD result to an array so we can plot a corner plot
                 for l in range(len(popt_PLD)):
@@ -245,12 +260,12 @@ for m in range(len(AORs)):
                 # Calculate the chi2
                 chi2_A = chi(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly,
                                             batman_params_poly, poly_params,
-                                            x=x, y=y, method = "poly")/(len(lc)-len(popt))
+                                            x=x, y=y, method = "poly", eclipse = eclipse)/(len(lc)-len(popt))
                 chi2_poly[i][j][k] = chi2_A
 
                 chi2_B = chi(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD,
                                             batman_params_PLD, PLD_params,
-                                            Pns = Pns, method = "PLD")/(len(lc)-len(popt_PLD))
+                                            Pns = Pns, method = "PLD", eclipse = eclipse)/(len(lc)-len(popt_PLD))
                 chi2_PLD[i][j][k] = chi2_B
                 count += 1
 
