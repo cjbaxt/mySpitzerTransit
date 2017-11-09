@@ -172,7 +172,7 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
         return bounds
 
 # Polynomial fitting functions
-def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, components = False):
+def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, components = False, eclipse = False):
     """Make a quadratic function of order 2 with cross terms."""
     x0, y0 = np.floor(np.mean(x))+0.5, np.floor(np.mean(y))+0.5
 
@@ -220,7 +220,11 @@ def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_pa
     poly_params = update_params(poly_coeffs_dict, poly_params)
 
     # Create the transit model
-    m = batman.TransitModel(batman_params, t)
+    if eclipse:
+        m = batman.TransitModel(batman_params, t, transittype = "secondary")
+    else:
+        m = batman.TransitModel(batman_params, t)
+
     transit = m.light_curve(batman_params)
 
     # Create the polynomial model including a temporal ramp
@@ -239,15 +243,23 @@ def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_pa
     else:
         return new_flux
 
-def function_poly(coeffs, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params):
+def function_poly(coeffs, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse = False):
     """Find the difference between a quadratic function and the lightcurve."""
-    new_flux = model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params)
+    new_flux = model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse = eclipse)
     return lc - new_flux
 
-def fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, lc, gaussian_priors = False, prior_params = None):
+def fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, lc, gaussian_priors = False, prior_params = None, eclipse = False):
 
     # Initialise ALL of the batman parameters
     batman_params = batman.TransitParams()
+    #Check for secondary eclipse
+    if eclipse and coeffs_dict['ecc'] == 0.:
+        batman_params.fp = coeffs_dict['fp']
+        batman_params.t_secondary = coeffs_dict['t0'] + 0.5*coeffs_dict['per']
+    elif eclipse and coeffs_dict['ecc'] != 0.:
+        raise ValueError("No functionality for secondary eclipse with non zero eccentricity.")
+    else:
+        pass
     batman_params.t0 = coeffs_dict['t0']                      #time of inferior conjunction
     batman_params.per = coeffs_dict['per']                    #orbital period
     batman_params.rp = coeffs_dict['rp']                      #planet radius (in units of stellar radii)
@@ -272,7 +284,7 @@ def fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, lc, gaussi
     optimum_result = scipy.optimize.least_squares(function_poly,
                                                     fittable_coeffs,
                                                     bounds = bounds,
-                                                    args=(t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params))
+                                                    args=(t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse))
 
     return optimum_result, batman_params, poly_params
 
@@ -329,7 +341,7 @@ def prayer_bead_poly(coeffs, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs,
     return prayer_bead
 
 # PLD fitting functions
-def model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, components = False):
+def model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, components = False, eclipse = False):
     """Create the PLD model for fitting based on Deming 2016."""
 
     # List of batman parameter names for fitting
@@ -376,7 +388,11 @@ def model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_para
     PLD_params = update_params(PLD_coeffs_dict, PLD_params)
 
     # Create the transit model
-    m = batman.TransitModel(batman_params, t)
+    if eclipse:
+        m = batman.TransitModel(batman_params, t, transittype = "secondary")
+    else:
+        m = batman.TransitModel(batman_params, t)
+
     DE = m.light_curve(batman_params)
 
     # Create the PLD model including a temporal ramp
@@ -397,12 +413,12 @@ def model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_para
     else:
         return new_dSt
 
-def function_PLD(coeffs, t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params):
+def function_PLD(coeffs, t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse = False):
     """Find the difference between a PLD model and the lightcurve."""
-    new_flux = model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params)
+    new_flux = model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse = eclipse)
     return lc - new_flux
 
-def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centroids, lc, boxsize=(3,3), gaussian_priors = False, prior_params = None):
+def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centroids, lc, boxsize=(3,3), gaussian_priors = False, prior_params = None, eclipse = False):
 
     # Create the Pns = the inidividual pixel timeseries
     el1, el2 = int(np.floor(np.mean(centroids[:,1]))), int(np.floor(np.mean(centroids[:,0])))
@@ -415,6 +431,14 @@ def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centr
 
     # Initialise ALL of the batman parameters
     batman_params = batman.TransitParams()
+    #Check for secondary eclipse
+    if eclipse and coeffs_dict['ecc'] == 0.:
+        batman_params.fp = coeffs_dict['fp']
+        batman_params.t_secondary = coeffs_dict['t0'] + 0.5*coeffs_dict['per']
+    elif eclipse and coeffs_dict['ecc'] != 0.:
+        raise ValueError("No functionality for secondary eclipse with non zero eccentricity.")
+    else:
+        pass
     batman_params.t0 = coeffs_dict['t0']                      #time of inferior conjunction
     batman_params.per = coeffs_dict['per']                #orbital period
     batman_params.rp = coeffs_dict['rp']                      #planet radius (in units of stellar radii)
@@ -496,23 +520,23 @@ def prayer_bead_PLD(coeffs, t, Pns, lc, timeseries, centroids, coeffs_dict, coef
 
 # Fit checking functions
 def chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,
-        x=None, y=None, Pns=None, method = None):
+        x=None, y=None, Pns=None, method = None, eclipse = False):
     if method == 'PLD':
-        mod = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params)
+        mod = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, eclipse = eclipse)
         chi2 = ((lc - mod)/ lcerr)**2
         return np.sum(chi2)
     elif method == 'poly':
-        mod = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params)
+        mod = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, eclipse = eclipse)
         chi2 = ((lc - mod)/ lcerr)**2
         return np.sum(chi2)
 
 def BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,
-        x=None, y=None, Pns=None, method = None):
+        x=None, y=None, Pns=None, method = None, eclipse = False):
     if method == 'PLD':
-        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,Pns=Pns, method =method)
+        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,Pns=Pns, method =method, eclipse = eclipse)
         return np.sum(chi2) - len(popt)*np.log(len(lc))
     elif method == 'poly':
-        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y,method = method)
+        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y,method = method, eclipse = eclipse)
         return np.sum(chi2) - len(popt)*np.log(len(lc))
 
 def gelman_rubin(chain):
@@ -671,7 +695,7 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
                     name = None, channel = None, orbit = None, savefile = False, TT_hjd = None,
                     method = 'PLD', color = 'r', scale = None, filext = None, foldext = '',
                     showCuts = False, ncutstarts = None, cutstartTime = None,
-                    cutends = False):
+                    cutends = False, eclipse = False):
 
     """Function for plotting the lightcurve
     errors = Bool do or do not plot the errorbars.
@@ -689,7 +713,7 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
     if method == 'poly':
 
-        transit, F, ramp = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, components = True)
+        transit, F, ramp = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, components = True, eclipse = eclipse)
         optflux = transit*F*ramp
 
         # Correct the lightcurve and bin the data and the optimum values
@@ -706,8 +730,8 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
         # Calculate the residuals
         residuals = lc - optflux
         rms = np.sqrt(np.sum(residuals**2)/len(residuals))
-        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, x=x, y=y, method = 'poly')/(len(lc)-len(popt))
-        bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, x=x, y=y, method = 'poly')
+        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, x=x, y=y, method = 'poly', eclipse = eclipse)/(len(lc)-len(popt))
+        bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, x=x, y=y, method = 'poly', eclipse = eclipse)
 
         binned_residuals = []
         for i in range(len(binned_data)):
@@ -760,7 +784,7 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
     elif method == 'PLD':
 
-        DE, pixels, ramp = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, components = True)
+        DE, pixels, ramp = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, components = True, eclipse = eclipse)
 
         optflux = DE + pixels + ramp
 
@@ -778,8 +802,8 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
         # Calculate the residuals
         residuals = lc - optflux
         rms = np.sqrt(np.sum(residuals**2)/len(residuals))
-        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, Pns=Pns, method = 'PLD')/(len(lc)-len(popt))
-        bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, Pns=Pns, method = 'PLD')
+        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, Pns=Pns, method = 'PLD', eclipse = eclipse )/(len(lc)-len(popt))
+        bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, Pns=Pns, method = 'PLD', eclipse = eclipse)
 
         binned_residuals = []
         for i in range(len(binned_data)):
@@ -835,7 +859,7 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
 def inflate_errs(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
                  fix_coeffs, batman_params, params,
-                 x=None, y=None, Pns=None, method = None):
+                 x=None, y=None, Pns=None, method = None, eclipse = False):
 
     """Function to inflate the errors so we have a reduced chi2 of 1."""
 
@@ -845,14 +869,14 @@ def inflate_errs(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
 
         redChi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
                       fix_coeffs, batman_params, params,
-                      x=x,y=y, method = method)/(len(lc)-len(popt))
+                      x=x,y=y, method = method, eclipse = eclipse)/(len(lc)-len(popt))
 
         print "\t Original Reduced Chi2: {:.2f}".format(redChi2)
 
         newlcerr = np.sqrt(redChi2)*lcerr
         new_redChi2 = chi(popt, t, lc, newlcerr, coeffs_dict, coeffs_tuple,
                           fix_coeffs, batman_params, params,
-                          x=x,y=y, method = method)/(len(lc)-len(popt))
+                          x=x,y=y, method = method, eclipse = eclipse)/(len(lc)-len(popt))
 
         print "\t New Reduced Chi2: {:.2f}".format(new_redChi2)
 
@@ -860,14 +884,14 @@ def inflate_errs(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
 
         redChi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
                       fix_coeffs, batman_params, params,
-                      Pns=Pns, method = method)/(len(lc)-len(popt))
+                      Pns=Pns, method = method, eclipse = eclipse)/(len(lc)-len(popt))
 
         print "\t Original Reduced Chi2: {:.2f}".format(redChi2)
 
         newlcerr = np.sqrt(redChi2)*lcerr
         new_redChi2 = chi(popt, t, lc, newlcerr, coeffs_dict, coeffs_tuple,
                           fix_coeffs, batman_params, params,
-                          Pns=Pns, method = method)/(len(lc)-len(popt))
+                          Pns=Pns, method = method, eclipse = eclipse)/(len(lc)-len(popt))
 
         print "\t New Reduced Chi2: {:.2f}".format(new_redChi2)
 
@@ -963,7 +987,7 @@ def t0_Tinitial(samples, chaintype, labels, cuttime):
     return samp
 
 def sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, sigmaclip, nframes,
-        x=None, y=None, Pns=None, quiet = False, planet=None, AOR=None, channel=None, method=None,foldext='',plot = False, timeseries=None, centroids=None):
+        x=None, y=None, Pns=None, quiet = False, planet=None, AOR=None, channel=None, method=None,foldext='',plot = False, timeseries=None, centroids=None, eclipse = False):
 
     if method == 'poly': c, c2 ='b', '#ff7f0e'
     elif method == 'PLD': c, c2 = 'r', 'c'
@@ -973,7 +997,8 @@ def sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict, coeffs_tup
     originalt = t
 
     if method == 'poly':
-        optflux = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, components=False)
+        optflux = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs,
+                                batman_params, params, components=False, eclipse = eclipse)
         residuals = lc - optflux
 
         flagged_frames = np.full(residuals.shape, True, dtype=bool)
@@ -1017,7 +1042,8 @@ def sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict, coeffs_tup
         return t, x, y, lc, lcerr, background
 
     if method == 'PLD':
-        optflux = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, components = False)
+        optflux = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs,
+                            batman_params, params, components = False, eclipse = eclipse)
         residuals = lc - optflux
 
         flagged_frames = np.full(residuals.shape, True, dtype=bool)
@@ -1071,24 +1097,24 @@ def sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict, coeffs_tup
 # Functions for MCMC parameter exploration of PLD
 def lnprob_PLD(theta, t, Pns, lc, lcerrs, bounds,
                coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params,
-               gaussian_proirs = False, prior_coeffs = None):
+               gaussian_proirs = False, prior_coeffs = None, eclipse = False):
 
     fitted_coeffs = [key for key in coeffs_tuple if key not in fix_coeffs]
-    lp = lnprior_PLD(theta, bounds, batman_params, fitted_coeffs, gaussian_proirs, prior_coeffs, coeffs_dict)
+    lp = lnprior_PLD(theta, bounds, batman_params, fitted_coeffs, gaussian_proirs, prior_coeffs, coeffs_dict, eclipse = eclipse)
 
     if not np.isfinite(lp): return -np.inf
     if np.isnan(lp): return -np.inf
 
-    return lp + lnlike_PLD(theta, t, Pns, lc, lcerrs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params)
+    return lp + lnlike_PLD(theta, t, Pns, lc, lcerrs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, , eclipse = eclipse)
 
 def lnlike_PLD(theta, t, Pns, lc, lcerrs,
-               coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params):
+               coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse = False):
 
-    mod = model_PLD(theta,  t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params)
+    mod = model_PLD(theta,  t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse = eclipse)
 
     return -0.5*np.sum((((lc-mod)/lcerrs)**2) + np.log(2.*np.pi*(lcerrs**2)))
 
-def lnprior_PLD(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, prior_params, coeffs_dict):
+def lnprior_PLD(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, prior_params, coeffs_dict, eclipse = False):
 
     for i in range(len(theta)):
         if not bounds[0][i] < theta[i] < bounds[1][i]:
@@ -1147,25 +1173,25 @@ def mcmc_PLD(initial, data, nwalkers = 200, burnin_steps = 1000, production_step
 # Functions for MCMC parameter exploration of polynomial
 def lnprob_poly(theta, t, x,y, lc, lcerrs, bounds,
                coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params,
-               gaussian_proirs = False, prior_coeffs = None):
+               gaussian_proirs = False, prior_coeffs = None, eclipse = False):
 
     fitted_coeffs = [key for key in coeffs_tuple if key not in fix_coeffs]
 
-    lp = lnprior_poly(theta, bounds, batman_params, fitted_coeffs, gaussian_proirs, prior_coeffs, coeffs_dict)
+    lp = lnprior_poly(theta, bounds, batman_params, fitted_coeffs, gaussian_proirs, prior_coeffs, coeffs_dict, eclipse = eclipse)
 
     if not np.isfinite(lp): return -np.inf
     if np.isnan(lp): return -np.inf
 
-    return lp + lnlike_poly(theta, t, x,y, lc, lcerrs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params)
+    return lp + lnlike_poly(theta, t, x,y, lc, lcerrs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse = eclipse)
 
 def lnlike_poly(theta, t, x,y, lc, lcerrs,
-               coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params):
+               coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse = False):
 
-    mod = model_poly(theta,  t, x,y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params)
+    mod = model_poly(theta,  t, x,y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse = eclipse)
 
     return -0.5*np.sum((((lc-mod)/lcerrs)**2) + np.log(2.*np.pi*(lcerrs**2)))
 
-def lnprior_poly(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, prior_params, coeffs_dict):
+def lnprior_poly(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, prior_params, coeffs_dict, eclipse = False):
 
     for i in range(len(theta)):
         if not bounds[0][i] < theta[i] < bounds[1][i]:
@@ -1224,7 +1250,7 @@ def mcmc_poly(initial, data, nwalkers = 200, burnin_steps = 1000, production_ste
 def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
                 coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,scale,
                 labels, planet, AOR, channel, method, Tinitial, saveplots = True, foldext = '',
-                fix_coeffs_channels = None, AOR_No = None):
+                fix_coeffs_channels = None, AOR_No = None, eclipse = False):
 
     print "\nMCMC {} results...".format(method)
 
@@ -1333,7 +1359,7 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
         plot_lightcurve(t,  lc, lcerr, avgs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,
                     x=x, y=y, Pns = Pns, errors = False, binsize = 50,
                     name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
-                    method = method, color = c, scale = scale, filext = "mcmc",foldext=foldext)
+                    method = method, color = c, scale = scale, filext = "mcmc",foldext=foldext, eclipse = eclipse)
 
         # Make t0 in BJD instead of just start of observation time
         if 't0' not in fix_coeffs:
@@ -1360,9 +1386,9 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
                 binned_t.append(t[start + binsize/2])
                 binned_lcerr.append(np.sqrt(np.sum(np.sqrt(lc)[start:end]**2))/binsize)
                 if method == 'poly':
-                    binned_transit.append( np.mean(model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params)[start:end]) )
+                    binned_transit.append( np.mean(model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, eclipse = eclipse)[start:end]) )
                 elif method == 'PLD':
-                    binned_transit.append( np.mean(model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params)[start:end]) )
+                    binned_transit.append( np.mean(model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, eclipse = eclipse)[start:end]) )
                 start += binsize
                 end += binsize
 
@@ -1393,9 +1419,9 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
 
         print "\t Plotting background vs residuals and saving to file..."
         if method == 'poly':
-            residuals = function_poly(popt, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params)
+            residuals = function_poly(popt, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, eclipse = eclipse)
         elif method == 'PLD':
-            residuals = function_PLD(popt, t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params)
+            residuals = function_PLD(popt, t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, eclipse = eclipse)
 
         plt.plot(residuals, background, 'd', markersize = 4, color = c)
         plt.xlabel("Residuals")
@@ -1448,18 +1474,18 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
         # TODO check which chi2 this is, the one before or after the errors have been inflated?
 
         if method == 'poly':
-            optflux = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, components = False)
+            optflux = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, components = False, eclipse = eclipse)
             residuals = lc - optflux
             rms = np.sqrt(np.sum(residuals**2)/len(residuals))
-            chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y, method = 'poly')
-            bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y, method = 'poly')
+            chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y, method = 'poly', eclipse = eclipse)
+            bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y, method = 'poly', eclipse = eclipse)
 
         if method == 'PLD':
-            optflux = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, components = False)
+            optflux = model_PLD(popt, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, components = False, eclipse = eclipse)
             residuals = lc - optflux
             rms = np.sqrt(np.sum(residuals**2)/len(residuals))
-            chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, Pns=Pns, method = 'PLD')
-            bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, Pns=Pns, method = 'PLD')
+            chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, Pns=Pns, method = 'PLD', eclipse = eclipse)
+            bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, Pns=Pns, method = 'PLD', eclipse = eclipse)
 
         ##################################### Final Results File #####################################
         # been inferred and parameters that have been fixed.
