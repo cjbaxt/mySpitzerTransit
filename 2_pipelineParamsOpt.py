@@ -12,6 +12,8 @@ import batman, emcee, corner
 from tabulate import tabulate
 from IPython.display import HTML
 
+print "This is the eclipse development version"
+
 # Custom imports
 sys.path.insert(0, '{}/PhD/code/mySpitzerTransit/'.format(os.getenv('HOME')))
 from timeseries_routines import *
@@ -57,17 +59,19 @@ for m in range(len(AORs)):
 
     # Create a dictionary of the polynomial parameters...
     if eclipse:
-        coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark', 'fp', 't_secondary',
+        coeffs_tuple_poly = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
     else:
         coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     coeffs_dict_poly = dict()
     for label in coeffs_tuple_poly:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary':
             try:
                 coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[m])
             except:
@@ -76,22 +80,21 @@ for m in range(len(AORs)):
                 except: # the limb darkening law
                     coeffs_dict_poly[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of polynomial parameters to fix
-    fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
-
     # Create a dictionary of the PLD paramters...
     if eclipse:
-        coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark', 'fp', 't_secondary',
+        coeffs_tuple_PLD = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
     else:
         coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
 
     coeffs_dict_PLD = dict()
     for label in coeffs_tuple_PLD:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary':
             try:
                 coeffs_dict_PLD[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[m])
             except:
@@ -100,12 +103,14 @@ for m in range(len(AORs)):
                 except: # the limb darkening law
                     coeffs_dict_PLD[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of PLD parameters to fix
-    fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
-
     AOR = AORs[m]
     channel = channels[m]
-    coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
+
+    if eclipse:
+        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m]), float(t0s[m])
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
+    else:
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],

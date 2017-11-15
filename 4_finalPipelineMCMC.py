@@ -54,10 +54,14 @@ inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#'
 planet = inputData[0][1]
 AORs = inputData[1][1].split(', ')
 channels = inputData[2][1].split(', ')
-t0s = inputData[3][1].split(', ')
-cutstarts = [float(x) for x in inputData[4][1].split(', ')]
-cutends = [float(x) for x in inputData[5][1].split(', ')]
-posGuess = [float(x) for x in inputData[6][1].split(', ')]
+eclipses = inputData[3][1].split(', ')
+t0s = inputData[4][1].split(', ')
+cutstarts = [float(x) for x in inputData[5][1].split(', ')]
+cutends = [float(x) for x in inputData[6][1].split(', ')]
+posGuess = [float(x) for x in inputData[7][1].split(', ')]
+T0_bjd = float(inputData[int(np.where(inputData.T[0]=='T0_BJD')[0])][1]) - 2400000.5
+period = float(inputData[int(np.where(inputData.T[0]=='per')[0])][1])
+
 ldlaw = inputData[int(np.where(inputData.T[0]=='limb_dark')[0])][1]
 if foldext == 'None':
     foldext = ''
@@ -73,6 +77,12 @@ leastsquares, averages, medians, stdevs, rmss, chi2s, BICs, poserrs, negerrs = [
 #print inputData
 
 for i in range(len(PP)):
+
+    if 'E' in eclipses[i/2]:
+        eclipse = True
+    else:
+        eclipse = False
+
     # Read in the planet information from a text file
     # Create dictionary and fill of the stellar parameters (for limb darkening)
     star_params = {'Teff':0,'logg':0,'z':0,'Tefferr':0,'loggerr':0,'zerr':0}
@@ -80,13 +90,20 @@ for i in range(len(PP)):
         star_params[key] = float(inputData[int(np.where(inputData.T[0]==key)[0])][1])
 
     # Create a dictionary of the polynomial parameters...
-    coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
-                   'K1', 'K2', 'K3', 'K4', 'K5',
-                   'f', 'g', 'h')
+    if eclipse:
+        coeffs_tuple_poly = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'K1', 'K2', 'K3', 'K4', 'K5',
+                       'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
+    else:
+        coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'K1', 'K2', 'K3', 'K4', 'K5',
+                       'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     coeffs_dict_poly = dict()
     for label in coeffs_tuple_poly:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary':
             try:
                 if len(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')) == len(PP):
                     coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[i])
@@ -104,12 +121,20 @@ for i in range(len(PP)):
     fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     # Create a dictionary of the PLD paramters...
-    coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
-                   'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
-                   'g', 'h')
+    if eclipse:
+        coeffs_tuple_PLD = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+                       'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
+    else:
+        coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+                       'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
+
     coeffs_dict_PLD = dict()
     for label in coeffs_tuple_PLD:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary':
             try:
                 if len(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')) == len(PP):
                     coeffs_dict_PLD[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[i])
@@ -222,7 +247,15 @@ for i in range(len(PP)):
     t = (midtimes - midtimes[0])
     x, y = centroids.T[1], centroids.T[0]
 
-    coeffs_dict_PLD['t0'], coeffs_dict_poly['t0'] = t0guess, t0guess
+    if eclipse:
+        N_orbits = np.floor((midtimes[0] - T0_bjd)/period)
+        ET_bjd = T0_bjd + period*(N_orbits+0.5)
+        TT_bjd = T0_bjd + period*(N_orbits)
+        t = midtimes - midtimes[0]
+        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes[0], ET_bjd- midtimes[0]#float(t0s[m]), float(t0s[m])
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes[0], TT_bjd- midtimes[0]
+    else:
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
 
     # Get limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
@@ -233,7 +266,11 @@ for i in range(len(PP)):
 
     if method == 'poly':
 
-        result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+        result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly,
+        coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
+        gaussian_priors =gaussian_priors, prior_params =prior_coeffs,
+        eclipse = eclipse)
+
         popt = result.x
 
         # Calculate a new scale from after the initial first fit of the lightcurve
@@ -250,44 +287,55 @@ for i in range(len(PP)):
         print "\nNew scale poly: {}".format(scale)
 
         # Least squares again
-        result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+        result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly,
+        coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
+        gaussian_priors =gaussian_priors, prior_params =prior_coeffs,
+        eclipse = eclipse)
         popt = result.x
 
         # Plot the least squares result
         plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params,
                             x=x, y=y, errors = False, binsize = 50,
                             name = planet, channel = channel, orbit = AOR, savefile = True, TT_hjd = None,
-                            method = method, color = 'b', scale = scale, filext = "lsq", foldext = foldext)
+                            method = method, color = 'b', scale = scale, filext = "lsq", foldext = foldext, eclipse = eclipse)
 
         # Perform a sigma clip of the photometry
         t, x, y, lc, lcerr, bkg = sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict_poly,
                                                           coeffs_tuple_poly, fix_coeffs_poly, batman_params,
                                                           poly_params, 4, 30, x=x, y=y, quiet = False,
                                                           planet=planet, AOR=AOR, channel=channel, method=method,
-                                                          foldext=foldext, plot=True)
+                                                          foldext=foldext, plot=True, eclipse = eclipse)
 
         # Least squares again
-        result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+        result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly,
+        coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
+        gaussian_priors =gaussian_priors, prior_params =prior_coeffs,
+        eclipse = eclipse)
+
         popt = result.x
 
         # Prayer bead
-        prayer_bead = prayer_bead_poly(popt, t, x, y, lc, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params,
-                        100, planet, AOR, channel, method, foldext=foldext, plot = True)
+        prayer_bead = prayer_bead_poly(popt, t, x, y, lc, coeffs_dict_poly,
+        coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params,
+        100, planet, AOR, channel, method, foldext=foldext, plot = True, eclipse = eclipse)
 
         # labels
         labels_poly = [ key for key in coeffs_tuple_poly if key not in fix_coeffs_poly ]
 
         # Inflate the errors
-        newlcerr = inflate_errs(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params,x=x,y=y, method = method)
+        newlcerr = inflate_errs(popt, t, lc, lcerr, coeffs_dict_poly,
+        coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params,x=x,y=y,
+        method = method, eclipse = eclipse)
 
         # Run MCMC
         bounds = make_bounds(coeffs_tuple_poly, fix_coeffs_poly, t)
-        data = (t, x, y, lc, newlcerr, bounds, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params, gaussian_priors, prior_coeffs)
+        data = (t, x, y, lc, newlcerr, bounds, coeffs_dict_poly, coeffs_tuple_poly,
+        fix_coeffs_poly, batman_params, poly_params, gaussian_priors, prior_coeffs, eclipse)
         sampler = mcmc_poly(popt, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps)
 
         avgs, stds, meds, pos, neg, rms, chi2, bic = mcmc_results(sampler, popt, t, lc, newlcerr, x,y, None, bkg,
                                     coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params, scale, labels_poly,
-                                    planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext)
+                                    planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext, eclipse = eclipse)
 
         leastsquares.append(popt)
 
@@ -300,7 +348,9 @@ for i in range(len(PP)):
             coeffs_dict_poly['u'] = [ld_coeffs[i]]# Must be list!
 
             #POLYNOMIAL
-            result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+            result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly,
+            coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
+            gaussian_priors =gaussian_priors, prior_params =prior_coeffs, eclipse = eclipse)
             popt = result.x
             ldsamples_poly[i] = np.array(popt)
 
@@ -314,7 +364,10 @@ for i in range(len(PP)):
 
         print coeffs_dict_PLD
 
-        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc, boxsize = (3,3), gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD,
+        coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc,
+        boxsize = (3,3), gaussian_priors =gaussian_priors,
+        prior_params =prior_coeffs, eclipse = eclipse)
         popt_PLD = result_PLD.x
 
         # Calculate a new scale from after the initial first fit of the lightcurve
@@ -331,43 +384,52 @@ for i in range(len(PP)):
         print "\nNew scale PLD: {}".format(scale)
 
         # Least squares again
-        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc, boxsize = (3,3),gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD,
+        coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc,
+        boxsize = (3,3),gaussian_priors =gaussian_priors,
+        prior_params =prior_coeffs, eclipse = eclipse)
         popt_PLD = result_PLD.x
 
         # Plot the least squares result
         plot_lightcurve(t,  lc, lcerr, popt_PLD, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
                             Pns = Pns, errors = False, binsize = 50,
                             name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
-                            method = method, color = 'r', scale = scale, filext = "lsq", foldext=foldext)
+                            method = method, color = 'r', scale = scale, filext = "lsq", foldext=foldext, eclipse = eclipse)
 
         # Perform a sigma clip of the photometry
         t, x, y, Pns, lc, lcerr, bkg, timeseries, centroids = sigma_clip_residuals(popt_PLD, t, background, lc, lcerr, coeffs_dict_poly,
                                                           coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD,
                                                           PLD_params, 4, 30, x=x,y=y,Pns=Pns, quiet = False,
                                                           planet=planet, AOR=AOR, channel=channel, method=method,
-                                                          foldext=foldext, plot=True, timeseries=timeseries, centroids=centroids)
+                                                          foldext=foldext, plot=True, timeseries=timeseries, centroids=centroids,
+                                                          eclipse = eclipse)
 
         # Least squares again
-        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc, boxsize = (3,3),gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD,
+        coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc,
+        boxsize = (3,3),gaussian_priors =gaussian_priors,
+        prior_params =prior_coeffs, eclipse = eclipse)
         popt_PLD = result_PLD.x
 
         # Prayer bead
         prayer_bead = prayer_bead_PLD(popt_PLD, t, Pns, lc, timeseries, centroids, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
-                        10, planet, AOR, channel, method, foldext=foldext, plot = True)
+                        10, planet, AOR, channel, method, foldext=foldext, plot = True, eclipse = eclipse)
 
         labels_PLD = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
 
         # Inflate the errors
-        newlcerr = inflate_errs(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = method)
+        newlcerr = inflate_errs(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD,
+        fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = method, eclipse = eclipse)
 
         # Run MCMC
         bounds = make_bounds(coeffs_tuple_PLD, fix_coeffs_PLD, t)
-        data = (t, Pns, lc, newlcerr, bounds, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, gaussian_priors, prior_coeffs)
+        data = (t, Pns, lc, newlcerr, bounds, coeffs_dict_PLD, coeffs_tuple_PLD,
+        fix_coeffs_PLD, batman_params_PLD, PLD_params, gaussian_priors, prior_coeffs, eclipse)
         sampler = mcmc_PLD(popt_PLD, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps)
 
         avgs, stds, meds, pos, neg, rms, chi2, bic = mcmc_results(sampler, popt_PLD,t,lc,newlcerr,x,y,Pns,bkg,
                                     coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,scale,
-                                    labels_PLD, planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext)
+                                    labels_PLD, planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext, eclipse = eclipse)
 
         leastsquares.append(popt_PLD)
 
@@ -379,7 +441,10 @@ for i in range(len(PP)):
             coeffs_dict_PLD['u'] = [ld_coeffs[i]]# Must be list!
 
             #PLD
-            result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc, boxsize = (3,3),gaussian_priors =gaussian_priors, prior_params =prior_coeffs)
+            result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD,
+            coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc,
+            boxsize = (3,3),gaussian_priors =gaussian_priors,
+            prior_params =prior_coeffs, eclipse = eclipse)
             popt_PLD = result_PLD.x
             ldsamples_PLD[i] = np.array(popt_PLD)
 
@@ -420,7 +485,7 @@ for i in range(len(PP)):
 resultsfile.close()
 
 # Plot the final parameters
-parameter_plots(resultsfilepath, fitted_params, "Mean", planet, plotPublished, publishedDataFile, saveplot = True, foldext = foldext)
+parameter_plots(resultsfilepath, fitted_params, "Mean", planet, plotPublished, publishedDataFile, saveplot = True, foldext = foldext, eclipse = eclipse)
 
 sigma_sec_PLD, nsigma_PLD = t0check(resultsfilepath, 'Mean', 'PLD', coeffs_dict_PLD['per'], coeffs_dict_PLD['per_err'])
 

@@ -48,11 +48,12 @@ t0s = inputData[4][1].split(', ')
 cutstarts = [float(x) for x in inputData[5][1].split(', ')]
 cutends = [float(x) for x in inputData[6][1].split(', ')]
 posGuess = [float(x) for x in inputData[7][1].split(', ')]
+T0_bjd = float(inputData[int(np.where(inputData.T[0]=='T0_BJD')[0])][1]) - 2400000.5
+period = float(inputData[int(np.where(inputData.T[0]=='per')[0])][1])
 
 ldlaw = inputData[int(np.where(inputData.T[0]=='limb_dark')[0])][1]
 
 for m in range(len(AORs)):
-
     if 'E' in eclipses[m]:
         eclipse = True
     else:
@@ -64,17 +65,19 @@ for m in range(len(AORs)):
 
     # Create a dictionary of the polynomial parameters...
     if eclipse:
-        coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark', 'fp', 't_secondary',
+        coeffs_tuple_poly = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
     else:
         coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     coeffs_dict_poly = dict()
     for label in coeffs_tuple_poly:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary' and label != 't0':
             try:
                 coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[m])
             except:
@@ -83,21 +86,21 @@ for m in range(len(AORs)):
                 except: # the limb darkening law
                     coeffs_dict_poly[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of polynomial parameters to fix
-    fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
-
     # Create a dictionary of the PLD paramters...
     if eclipse:
-        coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark', 'fp', 't_secondary',
+        coeffs_tuple_PLD = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
     else:
         coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
+
     coeffs_dict_PLD = dict()
     for label in coeffs_tuple_PLD:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary' and label != 't0':
             try:
                 coeffs_dict_PLD[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[m])
             except:
@@ -106,12 +109,8 @@ for m in range(len(AORs)):
                 except: # the limb darkening law
                     coeffs_dict_PLD[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of PLD parameters to fix
-    fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
-
     AOR = AORs[m]
     channel = channels[m]
-    coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
@@ -167,11 +166,23 @@ for m in range(len(AORs)):
     lcerr = np.sqrt(lc)
     scale = np.median(lc[:100]) # Guess initial scale
     lc, lcerr = lc/scale, lcerr/scale
-    t = (midtimes_red - midtimes_red[0])
-    print midtimes_red[0]
     x, y = centroids_red[:,1], centroids_red[:,0]
+    t = (midtimes_red - midtimes_red[0])
 
+    if eclipse:
+        N_orbits = np.floor((midtimes_red[0] - T0_bjd)/period)
+        ET_bjd = T0_bjd + period*(N_orbits+0.5)
+        TT_bjd = T0_bjd + period*(N_orbits)
+        t = midtimes_red - midtimes_red[0]
+        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes_red[0], ET_bjd- midtimes_red[0]#float(t0s[m]), float(t0s[m])
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes_red[0], TT_bjd- midtimes_red[0]
+    else:
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
     #POLYNOMIAL
+
+    print coeffs_dict_poly
+    print fix_coeffs_poly
+
     result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
     popt = result.x
     labels_poly = [ key for key in coeffs_tuple_poly if key not in fix_coeffs_poly ]
@@ -197,7 +208,7 @@ for m in range(len(AORs)):
     poly_Ks_fix = [['K2', 'K3', 'K4', 'K5'], ['K1', 'K2', 'K4', 'K5'], ['K2', 'K4', 'K5'], ['K4', 'K5'], ['K2','K5'], ['K5'], []]
 
     fix_coeffs_nosys = [p for p in fix_coeffs_poly if 'K' not in p]
-    print fix_coeffs_nosys
+
     BICs, nparams, chi2s = [], [], []
 
     for j in range(len(poly_Ks_fit)):

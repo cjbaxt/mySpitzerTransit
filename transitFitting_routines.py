@@ -104,16 +104,16 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
             ind = np.where(np.array(fittable_coeffs_labels) == 't_secondary')
             ind = ind[0][0]
             bounds[0][ind], bounds[1][ind] = t[0], t[-1]
-            if 't0' in fittable_coeffs_labels:
-                ind = np.where(np.array(fittable_coeffs_labels) == 't0')
-                ind = ind[0][0]
-                bounds[0][ind], bounds[1][ind] = t[0]-coeffs_dict['per']/2., t[-1]-coeffs_dict['per']/2.
-        if 't0' in fittable_coeffs_labels:
+        elif 't0' in fittable_coeffs_labels:
             ind = np.where(np.array(fittable_coeffs_labels) == 't0')
             ind = ind[0][0]
             bounds[0][ind], bounds[1][ind] = t[0], t[-1]
         if 'rp' in fittable_coeffs_labels:
             ind = np.where(np.array(fittable_coeffs_labels) == 'rp')
+            ind = ind[0][0]
+            bounds[0][ind], bounds[1][ind] = 0., 1.
+        if 'fp' in fittable_coeffs_labels:
+            ind = np.where(np.array(fittable_coeffs_labels) == 'fp')
             ind = ind[0][0]
             bounds[0][ind], bounds[1][ind] = 0., 1.
         if 'a' in fittable_coeffs_labels:
@@ -146,12 +146,20 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
 
         bounds = [[-np.inf]*(len(fittable_coeffs_labels)), [np.inf]*(len(fittable_coeffs_labels))]
 
-        if 't0' in fittable_coeffs_labels:
+        if 't_secondary' in fittable_coeffs_labels:
+            ind = np.where(np.array(fittable_coeffs_labels) == 't_secondary')
+            ind = ind[0][0]
+            bounds[0][ind], bounds[1][ind] = t[0], t[-1]
+        elif 't0' in fittable_coeffs_labels:
             ind = np.where(np.array(fittable_coeffs_labels) == 't0')
             ind = ind[0][0]
             bounds[0][ind], bounds[1][ind] = t[0], t[-1]
         if 'rp' in fittable_coeffs_labels:
             ind = np.where(np.array(fittable_coeffs_labels) == 'rp')
+            ind = ind[0][0]
+            bounds[0][ind], bounds[1][ind] = 0., 1.
+        if 'fp' in fittable_coeffs_labels:
+            ind = np.where(np.array(fittable_coeffs_labels) == 'fp')
             ind = ind[0][0]
             bounds[0][ind], bounds[1][ind] = 0., 1.
         if 'a' in fittable_coeffs_labels:
@@ -263,12 +271,12 @@ def fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, lc, gaussi
     #Check for secondary eclipse
     if eclipse and coeffs_dict['ecc'] == 0.:
         batman_params.fp = coeffs_dict['fp']
-        batman_params.t_secondary = coeffs_dict['t0'] + 0.5*coeffs_dict['per']
-    elif eclipse and coeffs_dict['ecc'] != 0.:
-        raise ValueError("No functionality for secondary eclipse with non zero eccentricity.")
+        batman_params.t_secondary = coeffs_dict['t_secondary']
+        batman_params.t0 = coeffs_dict['t0']
+    #elif eclipse and coeffs_dict['ecc'] != 0.:
+    #    raise ValueError("No functionality for secondary eclipse with zero eccentricity.")
     else:
-        pass
-    batman_params.t0 = coeffs_dict['t0']                      #time of inferior conjunction
+        batman_params.t0 = coeffs_dict['t0']                      #time of inferior conjunction
     batman_params.per = coeffs_dict['per']                    #orbital period
     batman_params.rp = coeffs_dict['rp']                      #planet radius (in units of stellar radii)
     batman_params.a = coeffs_dict['a']                        #semi-major axis (in units of stellar radii)
@@ -297,16 +305,18 @@ def fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, lc, gaussi
     return optimum_result, batman_params, poly_params
 
 def prayer_bead_poly(coeffs, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params,
-                        nskip, planet, AOR, channel, method, foldext='', plot = True):
+                        nskip, planet, AOR, channel, method, foldext='', plot = True, eclipse = False):
 
     # Create list of parameters that are being fit
     labels = [ key for key in coeffs_tuple if key not in fix_coeffs ]
 
     # Create a master model based on the least squares
-    master_model = model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params)
+    master_model = model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs,
+    batman_params, poly_params, eclipse = eclipse)
 
     # And a master residuals which will be permuated
-    master_residuals = function_poly(coeffs, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params)
+    master_residuals = function_poly(coeffs, t, x, y, lc, coeffs_dict,
+    coeffs_tuple, fix_coeffs, batman_params, poly_params, eclipse = eclipse)
 
     prayer_bead = np.ones((len(master_residuals)/nskip,len(coeffs)))
 
@@ -328,7 +338,8 @@ def prayer_bead_poly(coeffs, t, x, y, lc, coeffs_dict, coeffs_tuple, fix_coeffs,
         sim_lc = residuals + master_model
 
         # Refit the simualted light curve
-        optimum_result_sim, batman_params, poly_params = fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, sim_lc)
+        optimum_result_sim, batman_params, poly_params = fit_function_poly(coeffs_dict,
+        coeffs_tuple, fix_coeffs, t, x, y, sim_lc, eclipse = eclipse)
 
         popt_sim = optimum_result_sim.x
 
@@ -442,12 +453,12 @@ def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centr
     #Check for secondary eclipse
     if eclipse and coeffs_dict['ecc'] == 0.:
         batman_params.fp = coeffs_dict['fp']
-        batman_params.t_secondary = coeffs_dict['t0'] + 0.5*coeffs_dict['per']
-    elif eclipse and coeffs_dict['ecc'] != 0.:
-        raise ValueError("No functionality for secondary eclipse with non zero eccentricity.")
+        batman_params.t_secondary = coeffs_dict['t_secondary']
+        batman_params.t0 = coeffs_dict['t0']
+    #elif eclipse and coeffs_dict['ecc'] != 0.:
+    #    raise ValueError("No functionality for secondary eclipse with non zero eccentricity.")
     else:
-        pass
-    batman_params.t0 = coeffs_dict['t0']                      #time of inferior conjunction
+        batman_params.t0 = coeffs_dict['t0']                      #time of inferior conjunction
     batman_params.per = coeffs_dict['per']                #orbital period
     batman_params.rp = coeffs_dict['rp']                      #planet radius (in units of stellar radii)
     batman_params.a = coeffs_dict['a']                        #semi-major axis (in units of stellar radii)
@@ -470,21 +481,25 @@ def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centr
     optimum_result = scipy.optimize.least_squares(function_PLD,
                                                     fittable_coeffs,
                                                     bounds = bounds,
-                                                    args=(t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params))
+                                                    args=(t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params, eclipse))
 
     return optimum_result, batman_params, PLD_params, Pns
 
-def prayer_bead_PLD(coeffs, t, Pns, lc, timeseries, centroids, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params,
-                    nskip, planet, AOR, channel, method, foldext='', plot = True):
+def prayer_bead_PLD(coeffs, t, Pns, lc, timeseries, centroids, coeffs_dict,
+                    coeffs_tuple, fix_coeffs, batman_params, PLD_params,
+                    nskip, planet, AOR, channel, method, foldext='', plot = True,
+                    elcipse = False):
 
     # Create list of parameters that are being fit
     labels = [ key for key in coeffs_tuple if key not in fix_coeffs ]
 
     # Create a master model based on the least squares
-    master_model = model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params)
+    master_model = model_PLD(coeffs, t, Pns, coeffs_dict, coeffs_tuple, fix_coeffs,
+                                batman_params, PLD_params, eclipse = eclipse)
 
     # And a master residuals which will be permuated
-    master_residuals = function_PLD(coeffs, t, Pns, lc, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, PLD_params)
+    master_residuals = function_PLD(coeffs, t, Pns, lc, coeffs_dict, coeffs_tuple,
+                                    fix_coeffs, batman_params, PLD_params, eclipse = eclipse)
 
     prayer_bead = np.ones((len(master_residuals)/nskip,len(coeffs)))
 
@@ -507,7 +522,8 @@ def prayer_bead_PLD(coeffs, t, Pns, lc, timeseries, centroids, coeffs_dict, coef
         sim_lc = residuals + master_model
 
         # Refit the simualted light curve
-        optimum_result_sim, batman_params, PLD_params, Pns = fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centroids, sim_lc)
+        optimum_result_sim, batman_params, PLD_params, Pns = fit_function_PLD(coeffs_dict,
+        coeffs_tuple, fix_coeffs, t, timeseries, centroids, sim_lc, eclipse = eclipse)
 
         popt_sim = optimum_result_sim.x
 
@@ -947,7 +963,10 @@ def t0_BJD(samples, chaintype, labels, Tinitial):
     """Function to turn the change the value of t0 in smaples into real BJD
     based on the start time of the observations (Tinitial)."""
 
-    index = labels.index("t0")
+    try:
+        index = labels.index("t0")
+    except:
+        index = labels.index("t_secondary")
 
     if chaintype == 'chain':
         samp = np.zeros(samples.shape)
@@ -973,7 +992,10 @@ def t0_Tinitial(samples, chaintype, labels, cuttime):
     relative to original start time of the observations (Tinitial).
     This is for the cutstart script...."""
 
-    index = labels.index("t0")
+    try:
+        index = labels.index("t0")
+    except:
+        index = labels.index("t_secondary")
 
     if chaintype == 'chain':
         samp = np.zeros(samples.shape)
@@ -994,8 +1016,12 @@ def t0_Tinitial(samples, chaintype, labels, cuttime):
 
     return samp
 
-def sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, sigmaclip, nframes,
-        x=None, y=None, Pns=None, quiet = False, planet=None, AOR=None, channel=None, method=None,foldext='',plot = False, timeseries=None, centroids=None, eclipse = False):
+def sigma_clip_residuals(popt, t, background, lc, lcerr, coeffs_dict, coeffs_tuple,
+                        fix_coeffs, batman_params, params, sigmaclip, nframes,
+                        x=None, y=None, Pns=None, quiet = False, planet=None,
+                        AOR=None, channel=None, method=None,foldext='',
+                        plot = False, timeseries=None, centroids=None,
+                        eclipse = False):
 
     if method == 'poly': c, c2 ='b', '#ff7f0e'
     elif method == 'PLD': c, c2 = 'r', 'c'
@@ -1154,7 +1180,6 @@ def lnprior_PLD(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, pr
 
     return prior
 
-
 def mcmc_PLD(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False):
 
     print "\nStarting MCMC..."
@@ -1230,7 +1255,6 @@ def lnprior_poly(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, p
             prior += np.log(nd.pdf(theta[index]))
 
     return prior
-
 
 def mcmc_poly(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False):
 
@@ -1749,8 +1773,9 @@ def pipelineOptPlots(planet, channel, method, AOR, sampleLabels, saveplots = Tru
         plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_GRID_Corner.png".format(planet, AOR, channel,method,foldext, os.getenv('HOME')),bbox_inches='tight')
     plt.close()
 
-
-def parameter_plots(result_file, fitted_params, resultType, planet, plotPublished = False, publishedDataFile = None, saveplot=True, foldext=''):
+def parameter_plots(result_file, fitted_params, resultType, planet,
+                    plotPublished = False, publishedDataFile = None,
+                    saveplot=True, foldext='', eclipse = False):
 
     """
     Function to plot the parameters in channel 1 and channel 2 for all AORs and both the polynomial
@@ -2013,7 +2038,6 @@ def parameter_plots(result_file, fitted_params, resultType, planet, plotPublishe
     else:
         pass
     f2.close()
-
 
 def compare_parameter_plots(result_file, result_file_eccentric, fitted_params, resultType, planet,
                     plotPublished = False, publishedDataFile = None, saveplot=True, foldext=''):
