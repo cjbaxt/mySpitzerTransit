@@ -269,10 +269,10 @@ def fit_function_poly(coeffs_dict, coeffs_tuple, fix_coeffs, t, x, y, lc, gaussi
     # Initialise ALL of the batman parameters
     batman_params = batman.TransitParams()
     #Check for secondary eclipse
-    if eclipse and coeffs_dict['ecc'] == 0.:
+    if eclipse:
         batman_params.fp = coeffs_dict['fp']
         batman_params.t_secondary = coeffs_dict['t_secondary']
-        batman_params.t0 = coeffs_dict['t0']
+        #batman_params.t0 = coeffs_dict['t0']
     #elif eclipse and coeffs_dict['ecc'] != 0.:
     #    raise ValueError("No functionality for secondary eclipse with zero eccentricity.")
     else:
@@ -451,10 +451,10 @@ def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centr
     # Initialise ALL of the batman parameters
     batman_params = batman.TransitParams()
     #Check for secondary eclipse
-    if eclipse and coeffs_dict['ecc'] == 0.:
+    if eclipse:
         batman_params.fp = coeffs_dict['fp']
         batman_params.t_secondary = coeffs_dict['t_secondary']
-        batman_params.t0 = coeffs_dict['t0']
+        #batman_params.t0 = coeffs_dict['t0']
     #elif eclipse and coeffs_dict['ecc'] != 0.:
     #    raise ValueError("No functionality for secondary eclipse with non zero eccentricity.")
     else:

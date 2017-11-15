@@ -65,7 +65,7 @@ for m in range(len(AORs)):
 
     # Create a dictionary of the polynomial parameters...
     if eclipse:
-        coeffs_tuple_poly = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+        coeffs_tuple_poly = ('t_secondary', 'fp', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
         fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
@@ -88,7 +88,7 @@ for m in range(len(AORs)):
 
     # Create a dictionary of the PLD paramters...
     if eclipse:
-        coeffs_tuple_PLD = ('t0',  't_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+        coeffs_tuple_PLD = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
         fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
@@ -175,7 +175,7 @@ for m in range(len(AORs)):
         TT_bjd = T0_bjd + period*(N_orbits)
         t = midtimes_red - midtimes_red[0]
         coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes_red[0], ET_bjd- midtimes_red[0]#float(t0s[m]), float(t0s[m])
-        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes_red[0], TT_bjd- midtimes_red[0]
+        #coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes_red[0], TT_bjd- midtimes_red[0]
     else:
         coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
     #POLYNOMIAL
