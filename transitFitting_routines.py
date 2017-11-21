@@ -488,7 +488,7 @@ def fit_function_PLD(coeffs_dict, coeffs_tuple, fix_coeffs, t, timeseries, centr
 def prayer_bead_PLD(coeffs, t, Pns, lc, timeseries, centroids, coeffs_dict,
                     coeffs_tuple, fix_coeffs, batman_params, PLD_params,
                     nskip, planet, AOR, channel, method, foldext='', plot = True,
-                    elcipse = False):
+                    eclipse = False):
 
     # Create list of parameters that are being fit
     labels = [ key for key in coeffs_tuple if key not in fix_coeffs ]
@@ -1809,8 +1809,29 @@ def parameter_plots(result_file, fitted_params, resultType, planet,
 
         else:
             raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
+
+    elif 't_secondary' in str(inputData[0]):
+        values = [s for i, s in enumerate(inputData[0]) if 't_secondary' in s]
+        indices = [i for i, s in enumerate(inputData[0]) if 't_secondary' in s]
+        Nvalues = len(indices)
+        Nbefore = indices[0]
+
+        if resultType == 'Mean':
+            k = values.index('t_secondary_mu') + Nbefore
+            e = values.index('t_secondary_std') + Nbefore
+
+        elif resultType == 'Median':
+            k = values.index('t_secondary_med') + Nbefore
+            e = values.index('t_secondary_poserr') + Nbefore
+
+        elif resultType == 'LSQ':
+            k = values.index('t_secondary_lqs') + Nbefore
+            e = values.index('t_secondary_std') + Nbefore
+
+        else:
+            raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
     else:
-        raise ValueError("Not implemented indices selection if we have not fit for t0")
+        raise ValueError("Not implemented indices selection if we have not fit for t0 or t_secondary")
 
     # If we have some published values, create a table of the Nsigma difference
     if plotPublished:
@@ -2079,6 +2100,28 @@ def compare_parameter_plots(result_file, result_file_eccentric, fitted_params, r
 
         else:
             raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
+
+    elif 't_secondary' in str(inputData[0]):
+        values = [s for i, s in enumerate(inputData[0]) if 't_secondary' in s]
+        indices = [i for i, s in enumerate(inputData[0]) if 't_secondary' in s]
+        Nvalues = len(indices)
+        Nbefore = indices[0]
+
+        if resultType == 'Mean':
+            k = values.index('t_secondary_mu') + Nbefore
+            e = values.index('t_secondary_std') + Nbefore
+
+        elif resultType == 'Median':
+            k = values.index('t_secondary_med') + Nbefore
+            e = values.index('t_secondary_poserr') + Nbefore
+
+        elif resultType == 'LSQ':
+            k = values.index('t_secondary_lqs') + Nbefore
+            e = values.index('t_secondary_std') + Nbefore
+
+        else:
+            raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
+
     else:
         raise ValueError("Not implemented indices selection if we have not fit for t0")
 

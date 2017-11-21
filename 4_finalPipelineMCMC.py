@@ -256,7 +256,7 @@ for i in range(len(PP)):
         coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes[0], ET_bjd- midtimes[0]#float(t0s[m]), float(t0s[m])
         #coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes[0], TT_bjd- midtimes[0]
     else:
-        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i]), float(t0s[i])
+        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2]), float(t0s[i/2])
 
     # Get limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
