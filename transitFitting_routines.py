@@ -1680,18 +1680,31 @@ def t0check(resultFile, resultType, method, period, perioderr):
     accounts also for the error in the period. """
 
     inputData = np.genfromtxt(resultFile, dtype=None, delimiter=', ', comments='#')
+    if 't0' in str(inputData[0]):
+        if resultType == 'LSQ':
+            k = np.where(inputData[0] == 't0_lsq')[0][0]
+        elif resultType == 'Mean':
+            k = np.where(inputData[0] == 't0_mu')[0][0]
+        elif resultType == 'Median':
+            k = np.where(inputData[0] == 't0_med')[0][0]
+        else:
+            raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
 
-    if resultType == 'LSQ':
-        k = np.where(inputData[0] == 't0_lsq')[0][0]
-    elif resultType == 'Mean':
-        k = np.where(inputData[0] == 't0_mu')[0][0]
-    elif resultType == 'Median':
-        k = np.where(inputData[0] == 't0_med')[0][0]
-    else:
-        raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
+        l = np.where(inputData[0] == 't0_std')[0][0]
 
-    l = np.where(inputData[0] == 't0_std')[0][0]
+    elif 't_secondary' in str(inputData[0]):
 
+        if resultType == 'LSQ':
+            k = np.where(inputData[0] == 't_secondary_lsq')[0][0]
+        elif resultType == 'Mean':
+            k = np.where(inputData[0] == 't_secondary_mu')[0][0]
+        elif resultType == 'Median':
+            k = np.where(inputData[0] == 't_secondary_med')[0][0]
+        else:
+            raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
+
+        l = np.where(inputData[0] == 't_secondary_std')[0][0]
+    
     t0s = [float(line[k]) for line in inputData if method in line]
     t0errs = [float(line[l]) for line in inputData if method in line]
 
