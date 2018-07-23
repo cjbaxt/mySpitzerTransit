@@ -200,111 +200,100 @@ for m in range(len(AORs)):
                 for l in range(len(binsize_methods_params)):
                     p.animate(count)
 
-                    try:
-                        # Run pipeline and create the lightcurve and timeseries
-                        lightcurve_red, timeseries_red, centroids_red, midtimes_red, background_red =  runPipeline(timeseries_badpix, midtimes,
-                               method_bkg = bkg_methods[i], method_cent = cent_methods[j],
-                               ramp_time = (cutstarts[m])*60,
-                               end_time = (cutends[m])*60,
-                               frametime = framtime,
-                               x0guess = posGuess[0], y0guess = posGuess[1],
-                               sigma_clip_cent = 4, iters_cent = 2, nframes_cent = 30, radius_photom = photom_methods_params[k],
-                               sigma_clip_phot = 4, iters_photom = 2, nframes_photom = 30,
-                               size_bkg_box = bkg_methods_params[i][0] , radius_bkg_ann = bkg_methods_params[i][1], size_bkg_ann = bkg_methods_params[i][2],
-                               size_cent_bary = cent_methods_params[j], quiet = True, foldext=foldext)
+                    #try:
+                    # Run pipeline and create the lightcurve and timeseries
+                    lightcurve_red, timeseries_red, centroids_red, midtimes_red, background_red =  runPipeline(timeseries_badpix, midtimes,
+                           method_bkg = bkg_methods[i], method_cent = cent_methods[j],
+                           ramp_time = (cutstarts[m])*60,
+                           end_time = (cutends[m])*60,
+                           frametime = framtime,
+                           x0guess = posGuess[0], y0guess = posGuess[1],
+                           sigma_clip_cent = 4, iters_cent = 2, nframes_cent = 30, radius_photom = photom_methods_params[k],
+                           sigma_clip_phot = 4, iters_photom = 2, nframes_photom = 30,
+                           size_bkg_box = bkg_methods_params[i][0] , radius_bkg_ann = bkg_methods_params[i][1], size_bkg_ann = bkg_methods_params[i][2],
+                           size_cent_bary = cent_methods_params[j], quiet = True, foldext=foldext)
 
+                    lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
+                    timeseries_red = custom_bin(timeseries_red, binsize_methods_params[l])
+                    centroids_red = custom_bin(centroids_red, binsize_methods_params[l])
+                    midtimes_red = custom_bin(midtimes_red, binsize_methods_params[l])
+                    background_red = custom_bin(background_red, binsize_methods_params[l])
 
+                    lc = lightcurve_red*MJysr2lelectrons
+                    lcerr = np.sqrt(lc)
+                    scale = np.median(lc[:100])
+                    lc, lcerr = lc/scale, lcerr/scale
+                    t = (midtimes_red - midtimes_red[0])
+                    x, y = centroids_red[:,1], centroids_red[:,0]
 
-        binned_bkg = []
-        while end < len(bkg):
-            binned_bkg.append( np.mean(bkg[start:end]) )
-            start += binsize
-            end += binsize
+                    #POLYNOMIAL
+                    result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
+                    popt = result.x
 
-def custom_bin(array, binsize);
-    binned = []
-    start, end = 0, binsize
-    while end < len(array):
-        binned.append(np.mean[array[start:end]] )
-        start += binsize
-        end+=binsize
-    return bin
+                    # Update coeffs_dict so that it uses values from previous iteration
+                    # for key in coeffs_dict_poly.keys():
+                    #     try:
+                    #         # Batman
+                    #          coeffs_dict_poly[key] = batman_params_poly.__dict__[key]
+                    #     except:
+                    #         # Normal dictionary
+                    #         coeffs_dict_poly[key] = poly_params[key]
 
-                        lightcurve_red, timeseries_red, centroids_red, midtimes_red, background_red = binned_data
-                        lc = lightcurve_red*MJysr2lelectrons
-                        lcerr = np.sqrt(lc)
-                        scale = np.median(lc[:100])
-                        lc, lcerr = lc/scale, lcerr/scale
-                        t = (midtimes_red - midtimes_red[0])
-                        x, y = centroids_red[:,1], centroids_red[:,0]
+                    plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params,
+                                        x=x,y=y, errors = False, binsize = 50,
+                                        name = planet, channel = channel, orbit = AOR, savefile = True, TT_hjd = None,
+                                        method = "poly", color = 'b', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext, eclipse = eclipse)
 
-                        #POLYNOMIAL
-                        result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
-                        popt = result.x
+                    # Save the least squares polynomial result to an array so we can plot a corer plot
+                    for p in range(len(popt)):
+                        samples_poly[count][p] = popt[p]
 
-                        # Update coeffs_dict so that it uses values from previous iteration
-                        # for key in coeffs_dict_poly.keys():
-                        #     try:
-                        #         # Batman
-                        #          coeffs_dict_poly[key] = batman_params_poly.__dict__[key]
-                        #     except:
-                        #         # Normal dictionary
-                        #         coeffs_dict_poly[key] = poly_params[key]
+                    #PLD
+                    result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD,
+                                                                        fix_coeffs_PLD, t, timeseries_red, centroids_red, lc, eclipse = eclipse)
+                    popt_PLD = result_PLD.x
 
-                        plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params,
-                                            x=x,y=y, errors = False, binsize = 50,
-                                            name = planet, channel = channel, orbit = AOR, savefile = True, TT_hjd = None,
-                                            method = "poly", color = 'b', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext, eclipse = eclipse)
+                    # for key in coeffs_dict_PLD.keys():
+                    #     try:
+                    #         # Batman
+                    #          coeffs_dict_PLD[key] = batman_params_PLD.__dict__[key]
+                    #     except:
+                    #         # Normal dictionary
+                    #         coeffs_dict_PLD[key] = PLD_params[key]
 
-                        # Save the least squares polynomial result to an array so we can plot a corer plot
-                        for p in range(len(popt)):
-                            samples_poly[count][p] = popt[p]
+                    plot_lightcurve(t,  lc, lcerr, popt_PLD, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
+                                        Pns = Pns, errors = False, binsize = 50,
+                                        name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
+                                        method = "PLD", color = 'r', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext, eclipse = eclipse)
 
-                        #PLD
-                        result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD,
-                                                                            fix_coeffs_PLD, t, timeseries_red, centroids_red, lc, eclipse = eclipse)
-                        popt_PLD = result_PLD.x
+                    # Save the least squares polynomial result to an array so we can plot a corer plot
+                    for p in range(len(popt_PLD)):
+                        samples_PLD[count][p] = popt_PLD[p]
 
-                        # for key in coeffs_dict_PLD.keys():
-                        #     try:
-                        #         # Batman
-                        #          coeffs_dict_PLD[key] = batman_params_PLD.__dict__[key]
-                        #     except:
-                        #         # Normal dictionary
-                        #         coeffs_dict_PLD[key] = PLD_params[key]
+                    # Calculate the chi2
+                    chi2_A = chi(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly,
+                                                batman_params_poly, poly_params,
+                                                x=x, y=y, method = "poly", eclipse = eclipse)/(len(lc)-len(popt))
+                    chi2_poly[i][j][k][l] = chi2_A
 
-                        plot_lightcurve(t,  lc, lcerr, popt_PLD, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
-                                            Pns = Pns, errors = False, binsize = 50,
-                                            name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
-                                            method = "PLD", color = 'r', scale = scale, filext = "pipelineOpt_{}".format(count), foldext=foldext, eclipse = eclipse)
+                    chi2_B = chi(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD,
+                                                batman_params_PLD, PLD_params,
+                                                Pns = Pns, method = "PLD", eclipse = eclipse)/(len(lc)-len(popt_PLD))
+                    chi2_PLD[i][j][k][l] = chi2_B
 
-                        # Save the least squares polynomial result to an array so we can plot a corer plot
-                        for p in range(len(popt_PLD)):
-                            samples_PLD[count][p] = popt_PLD[p]
+                     # Here we could add in the test of the least squares between the rms expected vs real
 
-                        # Calculate the chi2
-                        chi2_A = chi(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly,
-                                                    batman_params_poly, poly_params,
-                                                    x=x, y=y, method = "poly", eclipse = eclipse)/(len(lc)-len(popt))
-                        chi2_poly[i][j][k][l] = chi2_A
-
-                        chi2_B = chi(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD,
-                                                    batman_params_PLD, PLD_params,
-                                                    Pns = Pns, method = "PLD", eclipse = eclipse)/(len(lc)-len(popt_PLD))
-                        chi2_PLD[i][j][k][l] = chi2_B
-
-                    except Exception as e:
-                        print "Skipping pipeline iteration: {}-{}-{}".format(bkg_methods_params[i], cent_methods_params[j], photom_methods_params[k])
-                        print(e)
-                        chi2_poly[i][j][k][l] = np.nan
-                        chi2_PLD[i][j][k][l] = np.nan
-                        for p in range(len(popt)):
-                            samples_poly[count][p] = np.nan
-                        for p in range(len(popt_PLD)):
-                            samples_PLD[count][p] = np.nan
+                    # except Exception as e:
+                    #     print "Skipping pipeline iteration: {}-{}-{}-{}".format(bkg_methods_params[i], cent_methods_params[j], photom_methods_params[k], binsize_methods_params[l])
+                    #     print(e)
+                    #     chi2_poly[i][j][k][l] = np.nan
+                    #     chi2_PLD[i][j][k][l] = np.nan
+                    #     for p in range(len(popt)):
+                    #         samples_poly[count][p] = np.nan
+                    #     for p in range(len(popt_PLD)):
+                    #         samples_PLD[count][p] = np.nan
 
                     count += 1
-
 
     np.save('{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_pipelineOptSamples'.format(planet, AOR, channel,"poly",foldext, os.getenv('HOME')), samples_poly)
     np.save('{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_pipelineOptSamples'.format(planet, AOR, channel,"PLD",foldext, os.getenv('HOME')), samples_PLD)
@@ -326,17 +315,19 @@ def custom_bin(array, binsize);
     except:
         pass
 
-    f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} \n".format("poly", AOR, channel,
+    f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} \n".format("poly", AOR, channel,
                                                     chi2_poly[index[0][0]][index[1][0]][index[2][0]],
                                                     bkg_methods[index[0][0]], bkg_methods_params[index[0][0]][0],
                                                     bkg_methods_params[index[0][0]][1],bkg_methods_params[index[0][0]][2],
                                                     cent_methods[index[1][0]], cent_methods_params[index[1][0]],
-                                                    photom_methods_params[index[2][0]]))
+                                                    photom_methods_params[index[2][0]],
+                                                    binsize_methods_params[index[3][0]]))
 
     # Save the values that the pipeline was explored over
     np.save('{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_bkgMethodsParams'.format(planet, AOR, channel,foldext, os.getenv('HOME')), np.array(bkg_methods_labels))
     np.save('{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_centMethodsParams'.format(planet, AOR, channel,foldext, os.getenv('HOME')), np.array(cent_methods_labels))
     np.save('{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_photomMethodsParams'.format(planet, AOR, channel,foldext, os.getenv('HOME')), np.array(photom_methods_params))
+    np.save('{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_binsizeMethodsParams'.format(planet, AOR, channel,foldext, os.getenv('HOME')), np.array(binsize_methods_params))
 
     print "\nSaving PLD and results for AOR:{}...".format(AOR)
 
@@ -356,12 +347,13 @@ def custom_bin(array, binsize);
     except:
         pass
 
-    f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} \n".format("PLD", AOR, channel,
+    f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} \n".format("PLD", AOR, channel,
                                                     chi2_PLD[index_PLD[0][0]][index_PLD[1][0]][index_PLD[2][0]],
                                                     bkg_methods[index_PLD[0][0]], bkg_methods_params[index_PLD[0][0]][0],
                                                     bkg_methods_params[index_PLD[0][0]][1],bkg_methods_params[index_PLD[0][0]][2],
                                                     cent_methods[index_PLD[1][0]], cent_methods_params[index_PLD[1][0]],
-                                                    photom_methods_params[index_PLD[2][0]]))
+                                                    photom_methods_params[index_PLD[2][0]],
+                                                    binsize_methods_params[index[3][0]]))
 
 f.close()
 

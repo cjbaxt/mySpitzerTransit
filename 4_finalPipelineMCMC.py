@@ -298,7 +298,7 @@ for i in range(len(PP)):
         # Least squares again
         result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly,
         coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
-        gaussian_priors =gaussian_priors, prior_params =prior_coeffs,
+        gaussian_priors = gaussian_priors, prior_params = prior_coeffs,
         eclipse = eclipse)
         popt = result.x
 
@@ -482,7 +482,7 @@ for i in range(len(PP)):
         results = {"parameters":labels, "averages": avgs, "stddevs": stds, "medians":meds,
                     "poserr":pos, "negerr":neg, "rms":rms, "chi2":chi2,
                     "bic":bic}
-                
+
         AORdata = {'Data Reduction': datared,
                'Results': results,
                'Fixed Parameters': fixedparameters,

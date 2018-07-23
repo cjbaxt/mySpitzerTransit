@@ -199,14 +199,16 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
 
         return bounds
 
-def custom_bin(array, binsize);
-    binned = []
-    start, end = 0, binsize
-    while end < len(array):
-        binned.append(np.mean[array[start:end]] )
-        start += binsize
-        end += binsize
-    return bin
+def custom_bin(array, binsize, axis = 0):
+    """Function for doing array wise binning over a certain axis"""
+    shape = np.array(array.shape)
+    print shape
+    shape[axis] = shape[axis]/binsize
+    binned = np.zeros(shape)
+    print binned
+    for i in range(shape[axis]):
+        binned[i] = np.mean(array[i:i+binsize])
+    return binned
 
 # Polynomial fitting functions
 def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, components = False, eclipse = False):
