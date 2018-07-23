@@ -39,12 +39,13 @@ print "Using planet data from {}".format(inFile)
 foldext = raw_input("Provide folder extension (hit ENTER for None): ")
 
 # Read in the planet information from a text file
-inputData = np.genfromtxt(inFile, dtype=None, delimiter=': ', comments='#')
+inputData = np.genfromtxt(inFile, dtype=None, delimiter=': ', comments='#', encoding = None)
 planet = inputData[0][1]
 AORs = inputData[1][1].split(', ')
 channels = inputData[2][1].split(', ')
 eclipses = inputData[3][1].split(', ')
 t0s = inputData[4][1].split(', ')
+print t0s
 cutstarts = [float(x) for x in inputData[5][1].split(', ')]
 cutends = [float(x) for x in inputData[6][1].split(', ')]
 posGuess = [float(x) for x in inputData[7][1].split(', ')]
@@ -140,12 +141,12 @@ for m in range(len(AORs)):
     print "\t Exptime = {}, Readnoise = {}, Gain = {}, Fluxconv = {}, Framtime = {}".format(exptime, readnoise, gain, fluxconv, framtime)
     print "\t MJy/sr to electrons conversion factor = {}".format(MJysr2lelectrons)
 
-    bkg_method = "Annulus"
-    bkg_boxsize = None
-    bkg_annradius = 7
-    bkg_annsize = 4
+    bkg_method = "Box"
+    bkg_boxsize = 4
+    bkg_annradius = None
+    bkg_annsize = None
     cent_method = "Barycenter"
-    cent_sizebary = 5
+    cent_sizebary = 3
     photom_radius = 2.5
 
     datapath = "{3}/PhD/SpitzerData/{0}/{1}/{2}/bcd/".format(planet,AOR,channel, os.getenv('HOME'))
@@ -174,10 +175,15 @@ for m in range(len(AORs)):
         ET_bjd = T0_bjd + period*(N_orbits+0.5)
         TT_bjd = T0_bjd + period*(N_orbits)
         t = midtimes_red - midtimes_red[0]
-        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes_red[0], ET_bjd- midtimes_red[0]#float(t0s[m]), float(t0s[m])
+        #coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd - midtimes_red[0], ET_bjd- midtimes_red[0]#float(t0s[m]), float(t0s[m])
         #coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes_red[0], TT_bjd- midtimes_red[0]
+        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m]), float(t0s[m])
     else:
-        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
+        print t0s
+        if float(t0s[0]) > 10.:
+            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m])-midtimes_red[0] - 2400000.5, float(t0s[m])-midtimes_red[0]- 2400000.5
+        else:
+            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
     #POLYNOMIAL
 
     print coeffs_dict_poly
@@ -200,7 +206,7 @@ for m in range(len(AORs)):
     plot_lightcurve(t,  lc, lcerr, popt_PLD, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
                         Pns = Pns, errors = False, binsize = 70,
                         name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
-                        method = "PLD", color = 'r', scale = scale, filext = "lsq_prelim", foldext=foldext, eclipse = eclipse)
+                        method = "PLD", color = "r", scale = scale, filext = "lsq_prelim", foldext=foldext, eclipse = eclipse)
 
     #Create list of lists of parameters to FIX
     poly_Ks_fit = [['K1'], ['K3'], ['K1','K3'], ['K1', 'K2', 'K3'], ['K1', 'K3', 'K4'],

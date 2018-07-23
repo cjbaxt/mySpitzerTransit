@@ -18,6 +18,7 @@ from tabulate import tabulate
 from IPython.display import HTML
 import emcee
 import corner
+import pickle
 
 print(sys.version)
 print "this is the eclipse development version "
@@ -51,7 +52,7 @@ print "Using planet data from {}".format(planetinFile)
 print "Using pipeline information from {}".format(pipelineinFile)
 
 # Read in the planet information from a text file
-inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#')
+inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#', encoding = None)
 planet = inputData[0][1]
 AORs = inputData[1][1].split(', ')
 channels = inputData[2][1].split(', ')
@@ -71,7 +72,7 @@ else:
 
 print type(foldext)
 
-PP = np.genfromtxt(pipelineinFile, dtype = None, skip_header = 1, delimiter = ', ', comments = '#')
+PP = np.genfromtxt(pipelineinFile, dtype = None, skip_header = 1, delimiter = ', ', comments = '#', encoding = None)
 
 leastsquares, averages, medians, stdevs, rmss, chi2s, BICs, poserrs, negerrs = [],[],[],[],[],[],[],[],[]
 
@@ -95,7 +96,7 @@ for i in range(len(PP)):
         coeffs_tuple_poly = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
-        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
+        #fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
     else:
         coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
@@ -126,7 +127,7 @@ for i in range(len(PP)):
         coeffs_tuple_PLD = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
-        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
+        #fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
     else:
         coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
@@ -192,8 +193,6 @@ for i in range(len(PP)):
     except:
         raise ValueError("Trying to fix period without giving an error!")
 
-    print coeffs_dict_poly
-    print coeffs_dict_PLD
 
     if len(prior_coeffs) > 1.:
         gaussian_priors = True
@@ -246,18 +245,27 @@ for i in range(len(PP)):
     print "\nGuess scale: {}".format(scale)
     lc, lcerr = lc/scale, lcerr/scale
     t = (midtimes - midtimes[0])
+    #print "\nTransit times: {}".format(tt)
+
     x, y = centroids.T[1], centroids.T[0]
 
     if eclipse:
-        N_orbits = np.floor((midtimes[0] - T0_bjd)/period)
-        ET_bjd = T0_bjd + period*(N_orbits+0.5)
-        TT_bjd = T0_bjd + period*(N_orbits)
-        t = midtimes - midtimes[0]
-        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes[0], ET_bjd- midtimes[0]#float(t0s[m]), float(t0s[m])
+        # N_orbits = np.floor((midtimes[0] - T0_bjd)/period)
+        # ET_bjd = T0_bjd + period*(N_orbits+0.5)
+        # TT_bjd = T0_bjd + period*(N_orbits)
+        # t = midtimes - midtimes[0]
+        # coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes[0], ET_bjd- midtimes[0]#float(t0s[m]), float(t0s[m])
         #coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes[0], TT_bjd- midtimes[0]
+        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[i/2]), float(t0s[i/2])
     else:
-        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2]), float(t0s[i/2])
+        # If I have given t0 in BJD as opposed to start of observations
+        if float(t0s[0]) > 10.:
+            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2])-midtimes[0] - 2400000.5, float(t0s[i/2])-midtimes[0]- 2400000.5
+        else:
+            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2]), float(t0s[i/2])
 
+    print coeffs_dict_poly
+    print coeffs_dict_PLD
     # Get limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
                                          star_params['Tefferr'],star_params['loggerr'],star_params['zerr'],
@@ -269,7 +277,7 @@ for i in range(len(PP)):
 
         result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly,
         coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
-        gaussian_priors =gaussian_priors, prior_params =prior_coeffs,
+        gaussian_priors = gaussian_priors, prior_params =prior_coeffs,
         eclipse = eclipse)
 
         popt = result.x
@@ -334,12 +342,36 @@ for i in range(len(PP)):
         fix_coeffs_poly, batman_params, poly_params, gaussian_priors, prior_coeffs, eclipse)
         sampler = mcmc_poly(popt, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps)
 
-        avgs, stds, meds, pos, neg, rms, chi2, bic = mcmc_results(sampler, popt, t, lc, newlcerr, x,y, None, bkg,
+        avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting_stuff = mcmc_results(sampler, popt, t, lc, newlcerr, x,y, None, bkg,
                                     coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params, scale, labels_poly,
-                                    planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext, eclipse = eclipse)
+                                    planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext, eclipse = eclipse, extraoutputs=True)
 
         leastsquares.append(popt)
+        # Save outputs in format for paper
+        pipelineparameters = {'Background Method':bkg_method,
+                          'Background Params': [bkg_boxsize, bkg_annradius, bkg_annsize],
+                          'Centroiding Method': cent_method,
+                          'Centroiding Params': cent_sizebary,
+                          'Aperture Size': photom_radius}
 
+        datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
+                    'midtimes':t, 'x':x, 'y':y, 'background':bkg,
+                    'timeseries':timeseries}
+
+        labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
+
+        results = {"parameters":labels, "averages": avgs, "stddevs": stds, "medians":meds,
+                    "poserr":pos, "negerr":neg, "rms":rms, "chi2":chi2,
+                    "bic":bic}
+
+        AORdata = {'Data Reduction': datared,
+               'Results': results,
+               'Fixed Parameters': fixedparameters,
+               'Best Fit': plotting_stuff,
+               'Pipeline Parameters': pipelineparameters}
+
+        AORfilepath = "{2}/PhD/SpitzerTransits/{0}{1}/{0}_{3}_{4}_{5}_ResultsDict.npy".format(planet,foldext, os.getenv('HOME'), AOR, method, channel)
+        np.save(AORfilepath, AORdata)
         # Draw from gaussian
         ld_coeffs = np.random.normal(ldcoeffs, ldcoeffs_err, 500)
         ldsamples_poly = np.zeros((len(ld_coeffs),len(coeffs_tuple_poly)- len(fix_coeffs_poly)))
@@ -411,6 +443,7 @@ for i in range(len(PP)):
         boxsize = (3,3),gaussian_priors =gaussian_priors,
         prior_params =prior_coeffs, eclipse = eclipse)
         popt_PLD = result_PLD.x
+        print popt_PLD
 
         # Prayer bead
         prayer_bead = prayer_bead_PLD(popt_PLD, t, Pns, lc, timeseries, centroids, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
@@ -428,9 +461,37 @@ for i in range(len(PP)):
         fix_coeffs_PLD, batman_params_PLD, PLD_params, gaussian_priors, prior_coeffs, eclipse)
         sampler = mcmc_PLD(popt_PLD, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps)
 
-        avgs, stds, meds, pos, neg, rms, chi2, bic = mcmc_results(sampler, popt_PLD,t,lc,newlcerr,x,y,Pns,bkg,
+        avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting_stuff = mcmc_results(sampler, popt_PLD,t,lc,newlcerr,x,y,Pns,bkg,
                                     coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,scale,
-                                    labels_PLD, planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext, eclipse = eclipse)
+                                    labels_PLD, planet, AOR, channel, method, midtimes[0],
+                                    saveplots=True, foldext=foldext, eclipse = eclipse, extraoutputs = True)
+
+        # Save outputs in format for paper
+        pipelineparameters = {'Background Method':bkg_method,
+                          'Background Params': [bkg_boxsize, bkg_annradius, bkg_annsize],
+                          'Centroiding Method': cent_method,
+                          'Centroiding Params': cent_sizebary,
+                          'Aperture Size': photom_radius}
+
+        datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
+                    'midtimes':t, 'Pns':Pns, 'background':bkg,
+                    'timeseries':timeseries}
+
+        labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
+
+        results = {"parameters":labels, "averages": avgs, "stddevs": stds, "medians":meds,
+                    "poserr":pos, "negerr":neg, "rms":rms, "chi2":chi2,
+                    "bic":bic}
+                
+        AORdata = {'Data Reduction': datared,
+               'Results': results,
+               'Fixed Parameters': fixedparameters,
+               'Best Fit': plotting_stuff,
+               'Pipeline Parameters': pipelineparameters}
+
+        AORfilepath = "{2}/PhD/SpitzerTransits/{0}{1}/{0}_{3}_{4}_{5}_ResultsDict.txt".format(planet,foldext, os.getenv('HOME'), AOR, method, channel)
+
+        SaveDictionary(AORdata,AORfilepath)
 
         leastsquares.append(popt_PLD)
 

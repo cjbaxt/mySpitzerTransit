@@ -14,6 +14,18 @@ from tabulate import tabulate
 from IPython.display import HTML
 import emcee, corner, collections, warnings
 from matplotlib import gridspec
+import pickle
+
+def SaveDictionary(dictionary,File):
+    with open(File, "wb") as myFile:
+        pickle.dump(dictionary, myFile)
+        myFile.close()
+
+def LoadDictionary(File):
+    with open(File, "rb") as myFile:
+        dict = pickle.load(myFile)
+        myFile.close()
+        return dict
 
 # Miscellaneous functions
 def getldcoeffs(Teff, logg, z, Tefferr, loggerr, zerr, law, channel, quiet = False):
@@ -28,9 +40,9 @@ def getldcoeffs(Teff, logg, z, Tefferr, loggerr, zerr, law, channel, quiet = Fal
 
     # Read in the required table
     if channel == 'ch1':
-        table = np.genfromtxt(ch1path, skip_header=13, dtype=float)
+        table = np.genfromtxt(ch1path, skip_header=13, dtype=float, encoding = None)
     elif channel == 'ch2':
-        table = np.genfromtxt(ch2path, skip_header=13, dtype=float)
+        table = np.genfromtxt(ch2path, skip_header=13, dtype=float, encoding = None)
 
     # 3D array of discrete values of teff, logg and z
     points = np.array([table.T[0], table.T[1], table.T[2]]).T
@@ -714,7 +726,7 @@ def runPipeline(timeseries_badpixmask, midtimes,
 
     return lightcurve, timeseries, centroids, midtimes, background
 
-def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params,
+def lightcurve_binned(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params,
                     x = None, y = None, Pns = None, errors = False, binsize = 50,
                     name = None, channel = None, orbit = None, savefile = False, TT_hjd = None,
                     method = 'PLD', color = 'r', scale = None, filext = None, foldext = '',
@@ -725,6 +737,58 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
     errors = Bool do or do not plot the errorbars.
     binsize = number of points to include in a bin
     """
+
+    binsize = int(binsize)
+
+    if name == None:
+        warnings.warn( "What planetary system are we looking at!? -- setting to 'unknown'" )
+        name = 'unknown'
+    if channel == None:
+        warnings.warn( "What channel are we looking at!? -- setting to 'unknown'" )
+        channel = 'unknown'
+
+    if method == 'poly':
+
+        transit, F, ramp = model_poly(popt, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, components = True, eclipse = eclipse)
+        optflux = transit*F*ramp
+
+        # Correct the lightcurve and bin the data and the optimum values
+        corrected_data = lc / (F*ramp)
+        start, end = 0, binsize
+        binned_data, binned_opt, binned_times = [], [], []
+        while end < len(corrected_data):
+            binned_data.append( np.mean(corrected_data[start:end]) )
+            binned_opt.append( np.mean(transit[start:end]) )
+            binned_times.append((t)[start])
+            start += binsize
+            end += binsize
+
+        # Calculate the residuals
+        residuals = lc - optflux
+        rms = np.sqrt(np.sum(residuals**2)/len(residuals))
+        chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, x=x, y=y, method = 'PLD', eclipse = eclipse)/(len(lc)-len(popt))
+        bic = BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params, x=x, y=y, method = 'PLD', eclipse = eclipse)
+
+        binned_residuals = []
+        for i in range(len(binned_data)):
+            binned_residuals.append(binned_data[i] - binned_opt[i])
+
+        return binned_opt, binned_midtimes
+
+
+def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params,
+                    x = None, y = None, Pns = None, errors = False, binsize = 50,
+                    name = None, channel = None, orbit = None, savefile = False, TT_hjd = None,
+                    method = 'PLD', color = 'r', scale = None, filext = None, foldext = '',
+                    showCuts = False, ncutstarts = None, cutstartTime = None,
+                    cutends = False, eclipse = False, extraoutputs = False):
+
+    """Function for plotting the lightcurve
+    errors = Bool do or do not plot the errorbars.
+    binsize = number of points to include in a bin
+    """
+    # dictionary to save the reduced data, the model, the corrected data, the corrected model
+    plottingdict = {}
 
     binsize = int(binsize)
 
@@ -776,15 +840,28 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
         frame1.set_ylabel("Raw [e-]")
         frame1.legend(loc = 'best')
 
+
         frame2.plot(binned_times, binned_data, 'ko', markersize = 4, label='Binned data (x{})'.format(binsize))
         frame2.plot(binned_times, binned_opt, color = color, label='Best fit transit model')
         frame2.set_ylabel("Corrected & Normalised")
         frame2.legend(loc = 'lower left')
         frame2.annotate('RMS={0:.3e}\n'.format(rms) + r'$\chi_{red}^2$' + '={0:.3e} \nBIC={1:.3e}'.format(chi2, bic),
                 xy=(0.85, 0.2), xycoords='axes fraction',bbox={'facecolor':color, 'alpha':0.5, 'pad':10})
+
+
         frame3.plot(binned_times,binned_residuals, 'ko', markersize = 4)
         frame3.axhline(0, color = color)
         frame3.set_ylabel("Residuals")
+
+        plottingdict['Times'] = t
+        plottingdict['Raw Data'] = lc*scale
+        plottingdict['Full Poly Model'] = optflux*scale
+
+        plottingdict['Corrected Data'] = lc / (F*ramp)
+        plottingdict['Transit Model'] = transit
+        plottingdict['Temporal Ramp'] = ramp
+        plottingdict['Poly'] = F
+
 
         if showCuts:
             for j in range(ncutstarts):
@@ -860,6 +937,15 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
         plt.xlabel("Time [bjd]")
 
+        plottingdict['Times'] = t
+        plottingdict['Raw Data'] = lc*scale
+        plottingdict['Full PLD Model'] = optflux*scale
+
+        plottingdict['Corrected Data'] = lc - pixels - ramp
+        plottingdict['Transit Model'] = DE
+        plottingdict['Temporal Ramp'] = ramp
+        plottingdict['PLD'] = pixels
+
         if showCuts:
             for j in range(ncutstarts):
                 if cutends:
@@ -880,6 +966,11 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
     else:
         warnings.warn( "What model do you want to plot?!" )
+
+    if extraoutputs:
+        return plottingdict
+    else:
+        pass
 
 def inflate_errs(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
                  fix_coeffs, batman_params, params,
@@ -1282,7 +1373,7 @@ def mcmc_poly(initial, data, nwalkers = 200, burnin_steps = 1000, production_ste
 def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
                 coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,scale,
                 labels, planet, AOR, channel, method, Tinitial, saveplots = True, foldext = '',
-                fix_coeffs_channels = None, AOR_No = None, eclipse = False):
+                fix_coeffs_channels = None, AOR_No = None, eclipse = False, extraoutputs = False):
 
     print "\nMCMC {} results...".format(method)
 
@@ -1374,6 +1465,7 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
         ################################# Corner Plot ##############################################
 
         print "\t Plotting corner plot and saving to file..."
+        print labels
         fig = corner.corner(samples_fc,
                                quantiles=[0.16, 0.5, 0.84],
                                labels = labels,
@@ -1388,10 +1480,16 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
 
         avgs = np.mean(samples_fc,axis=0)
 
-        plot_lightcurve(t,  lc, lcerr, avgs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,
+        if extraoutputs:
+            plotting = plot_lightcurve(t,  lc, lcerr, avgs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,
                     x=x, y=y, Pns = Pns, errors = False, binsize = 50,
                     name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
-                    method = method, color = c, scale = scale, filext = "mcmc",foldext=foldext, eclipse = eclipse)
+                    method = method, color = c, scale = scale, filext = "mcmc",foldext=foldext, eclipse = eclipse, extraoutputs = extraoutputs)
+        else:
+            plot_lightcurve(t,  lc, lcerr, avgs, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,
+                    x=x, y=y, Pns = Pns, errors = False, binsize = 50,
+                    name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
+                    method = method, color = c, scale = scale, filext = "mcmc",foldext=foldext, eclipse = eclipse, extraoutputs = extraoutputs)
 
         # Make t0 in BJD instead of just start of observation time
         if 't0' not in fix_coeffs:
@@ -1612,6 +1710,10 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
                 var,
                 val))
 
+        fixedparameters = {}
+        for key in fix_coeffs:
+            fixedparameters[key] = coeffs_dict[key]
+
         print >> f, ("\nInferred Parameters \n \hline")
         print >> f, ("Param & MCMC_mu & MCMC_err")
         print >> f, ("\hline")
@@ -1630,7 +1732,10 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
 
         f.close()
 
-    return avgs, stds, meds, pos, neg, rms, chi2, bic
+    if extraoutputs:
+        return avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting
+    else:
+        return avgs, stds, meds, pos, neg, rms, chi2, bic
 
 def weightedMean(averages, stddevs):
 
@@ -1639,11 +1744,15 @@ def weightedMean(averages, stddevs):
 
     ndatapoints = averages.shape[0]
 
+    # This is if we are doing an array of parameters
     try:
         # There might be some problems with this part of the code
+        # Get the number of parameters
         nparams = averages.shape[1]
+        # initialise blank arrays
         weighted_means = np.zeros(nparams)
         total_stddevs = np.zeros(nparams)
+        # Loop over the parameters
         for i in range(nparams):
             stddevs2 = np.zeros(stddevs[i].shape[1])
             for j in range(len(stddevs[i].T)):
@@ -1656,7 +1765,7 @@ def weightedMean(averages, stddevs):
         return weighted_means, total_stddevs
 
     except:
-        stddevs2 = np.zeros(stddevs.shape[1])
+        stddevs2 = np.zeros(len(stddevs.T))
         for j in range(len(stddevs.T)):
             stddevs2[j] = stddevs.T[j].max()
         weighted_mean = np.sum(averages/stddevs2**2, axis = 0)/ np.sum(1./stddevs2**2, axis = 0)
@@ -1679,7 +1788,7 @@ def t0check(resultFile, resultType, method, period, perioderr):
     """Function to return the number of sigma between the timing of two transits,
     accounts also for the error in the period. """
 
-    inputData = np.genfromtxt(resultFile, dtype=None, delimiter=', ', comments='#')
+    inputData = np.genfromtxt(resultFile, dtype=None, delimiter=', ', comments='#', encoding = None)
     if 't0' in str(inputData[0]):
         if resultType == 'LSQ':
             k = np.where(inputData[0] == 't0_lsq')[0][0]
@@ -1704,7 +1813,7 @@ def t0check(resultFile, resultType, method, period, perioderr):
             raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
 
         l = np.where(inputData[0] == 't_secondary_std')[0][0]
-    
+
     t0s = [float(line[k]) for line in inputData if method in line]
     t0errs = [float(line[l]) for line in inputData if method in line]
 
@@ -1730,9 +1839,9 @@ def pipelineOptPlots(planet, channel, method, AOR, sampleLabels, saveplots = Tru
 
     files = glob.glob("{2}/PhD/SpitzerTransits/{0}{1}/*.npy".format(planet,foldext, os.getenv('HOME')))
 
-    bkg_methods_params = np.load("{5}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_bkgMethodsParams.npy".format(planet, AOR, channel,foldext, os.getenv('HOME')))
-    cent_methods_params = np.load("{5}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_centMethodsParams.npy".format(planet, AOR, channel,foldext, os.getenv('HOME')))
-    photom_methods_params = np.load("{5}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_photomMethodsParams.npy".format(planet, AOR, channel,foldext, os.getenv('HOME')))
+    bkg_methods_params = np.load("{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_bkgMethodsParams.npy".format(planet, AOR, channel,foldext, os.getenv('HOME')))
+    cent_methods_params = np.load("{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_centMethodsParams.npy".format(planet, AOR, channel,foldext, os.getenv('HOME')))
+    photom_methods_params = np.load("{4}/PhD/SpitzerTransits/{0}{3}/{0}_{1}_{2}_photomMethodsParams.npy".format(planet, AOR, channel,foldext, os.getenv('HOME')))
 
     Samples = np.load("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_pipelineOptSamples.npy".format(planet, AOR, channel,method,foldext, os.getenv('HOME')))
     chi2Grid = np.load("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_Chi2grid.npy".format(planet, AOR, channel,method,foldext, os.getenv('HOME')))
@@ -1799,7 +1908,7 @@ def parameter_plots(result_file, fitted_params, resultType, planet,
     fitted_params = list from the original pipeline
     resultType = whether we are plotting the mean median or lsq """
 
-    inputData = np.genfromtxt(result_file, dtype=None, delimiter=', ', comments='#')
+    inputData = np.genfromtxt(result_file, dtype=None, delimiter=', ', comments='#', encoding = None)
 
     # Find out the indices of the type of average and the error
     if 't0' in str(inputData[0]):
@@ -1843,8 +1952,29 @@ def parameter_plots(result_file, fitted_params, resultType, planet,
 
         else:
             raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
+
+    elif 'rp' in str(inputData[0]):
+        values = [s for i, s in enumerate(inputData[0]) if 'rp' in s]
+        indices = [i for i, s in enumerate(inputData[0]) if 'rp' in s]
+        Nvalues = len(indices)
+        Nbefore = indices[0]
+
+        if resultType == 'Mean':
+            k = values.index('rp_mu') + Nbefore
+            e = values.index('rp_std') + Nbefore
+
+        elif resultType == 'Median':
+            k = values.index('rp_med') + Nbefore
+            e = values.index('rp_poserr') + Nbefore
+
+        elif resultType == 'LSQ':
+            k = values.index('rp_lqs') + Nbefore
+            e = values.index('rp_std') + Nbefore
+
+        else:
+            raise ValueError("Result type not recognised, please chose Mean, Median or LSQ.")
     else:
-        raise ValueError("Not implemented indices selection if we have not fit for t0 or t_secondary")
+        raise ValueError("Not implemented indices selection if we have not fit for t0 or t_secondary or rp")
 
     # If we have some published values, create a table of the Nsigma difference
     if plotPublished:
@@ -1955,7 +2085,7 @@ def parameter_plots(result_file, fitted_params, resultType, planet,
         if plotPublished:
             # Plot the published values if they they are given
             # and calculate Nsigma from published and save to a file
-            data = np.genfromtxt(publishedDataFile, dtype=None, delimiter=', ')
+            data = np.genfromtxt(publishedDataFile, dtype=None, delimiter=', ', encoding = None)
 
             if param in data.T[0].tolist():
 
@@ -2087,8 +2217,8 @@ def compare_parameter_plots(result_file, result_file_eccentric, fitted_params, r
 
     # Check if we are wanting to compare the eccentric and circular resutls.
 
-    inputData_circular = np.genfromtxt(result_file, dtype=None, delimiter=', ', comments='#')
-    inputData_eccentric = np.genfromtxt(result_file_eccentric, dtype=None, delimiter=', ', comments='#')
+    inputData_circular = np.genfromtxt(result_file, dtype=None, delimiter=', ', comments='#', encoding = None)
+    inputData_eccentric = np.genfromtxt(result_file_eccentric, dtype=None, delimiter=', ', comments='#', encoding = None)
 
     inputData = [inputData_circular, inputData_eccentric]
 
@@ -2264,7 +2394,7 @@ def compare_parameter_plots(result_file, result_file_eccentric, fitted_params, r
         if plotPublished:
             # Plot the published values if they they are given
             # and calculate Nsigma from published and save to a file
-            data = np.genfromtxt(publishedDataFile, dtype=None, delimiter=', ')
+            data = np.genfromtxt(publishedDataFile, dtype=None, delimiter=', ', encoding = None)
 
             if param in data.T[0].tolist():
 

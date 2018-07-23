@@ -41,7 +41,7 @@ print "Using pipeline information from {}".format(pipelineinFile)
 print "Going to make {0} cuts of {1} minutes".format(ncuts, cuttime)
 
 # Read in the planet information from a text file
-inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#')
+inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#', encoding = None)
 planet = inputData[0][1]
 AORs = inputData[1][1].split(', ')
 channels = inputData[2][1].split(', ')
@@ -53,7 +53,7 @@ posGuess = [float(x) for x in inputData[7][1].split(', ')]
 
 ldlaw = inputData[int(np.where(inputData.T[0]=='limb_dark')[0])][1]
 
-PP = np.genfromtxt(pipelineinFile, dtype = None, skip_header = 1, delimiter = ', ', comments = '#')
+PP = np.genfromtxt(pipelineinFile, dtype = None, skip_header = 1, delimiter = ', ', comments = '#', encoding = None)
 
 # Loop over the AOR with each model
 for m in range(len(PP)):
