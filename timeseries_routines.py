@@ -18,6 +18,8 @@ from scipy.optimize import minimize
 from scipy.optimize import minimize_scalar
 import matplotlib.pyplot as plt
 
+#This is a test edit of a new branch
+
 # Class for calculating the standard deviation of the aperture photometry for
 # finding the best radius value. This function currently just assumes that the
 # lightcurve would be a straight line, this is not right and thus this feature
@@ -624,6 +626,7 @@ def centroid(timeseries, method, boxsize = None, quiet = False, plot = False, AO
             centroids[i][0] = params.x_mean*1. + 0.5
             centroids[i][1] = params.y_mean*1. + 0.5
 
+
     elif method == 'Moffat':
 
         y, x = np.mgrid[:32, :32]
@@ -678,8 +681,10 @@ def centroid(timeseries, method, boxsize = None, quiet = False, plot = False, AO
 
             ####GET RID OF THESE NUMBERS
             coordinates = fluxweight_centroid( *cut_subarray(timeseries[i], x0guess, y0guess, boxsize ) )
+
             centroids[i][0] = coordinates[0]
             centroids[i][1] = coordinates[1]
+
     else:
         raise ValueError('Incorrect value for keyword method in centroiding.')
 
@@ -845,8 +850,8 @@ def aperture_photom(timeseries, centroids, radius, quiet = False, foldext=None):
     for i in range(len(timeseries)):
         positions = centroids[i] - 0.5
         apertures = CircularAperture(positions, r=radius)
-        photom = aperture_photometry(timeseries[i], apertures, method='subpixel', subpixels=5)[0][0]
-        lightcurve[i] = photom
+        photom = aperture_photometry(timeseries[i], apertures, method='subpixel', subpixels=5)
+        lightcurve[i] = photom[0][3]
 
     if not quiet: print "\t Success"
 

@@ -41,34 +41,47 @@ print "Using pipeline information from {}".format(pipelineinFile)
 print "Going to make {0} cuts of {1} minutes".format(ncuts, cuttime)
 
 # Read in the planet information from a text file
-inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#')
+inputData = np.genfromtxt(planetinFile, dtype=None, delimiter=': ', comments='#', encoding = None)
 planet = inputData[0][1]
 AORs = inputData[1][1].split(', ')
 channels = inputData[2][1].split(', ')
-t0s = inputData[3][1].split(', ')
-cutstarts = [float(x) for x in inputData[4][1].split(', ')]
-cutends = [float(x) for x in inputData[5][1].split(', ')]
-posGuess = [float(x) for x in inputData[6][1].split(', ')]
+eclipses = inputData[3][1].split(', ')
+t0s = inputData[4][1].split(', ')
+cutstarts = [float(x) for x in inputData[5][1].split(', ')]
+cutends = [float(x) for x in inputData[6][1].split(', ')]
+posGuess = [float(x) for x in inputData[7][1].split(', ')]
 
 ldlaw = inputData[int(np.where(inputData.T[0]=='limb_dark')[0])][1]
 
-PP = np.genfromtxt(pipelineinFile, dtype = None, skip_header = 1, delimiter = ', ', comments = '#')
+PP = np.genfromtxt(pipelineinFile, dtype = None, skip_header = 1, delimiter = ', ', comments = '#', encoding = None)
 
 # Loop over the AOR with each model
 for m in range(len(PP)):
+
+    if 'E' in eclipses[m/2]:
+        eclipse = True
+    else:
+        eclipse = False
 
     star_params = {'Teff':0,'logg':0,'z':0,'Tefferr':0,'loggerr':0,'zerr':0}
     for key in star_params:
         star_params[key] = float(inputData[int(np.where(inputData.T[0]==key)[0])][1])
 
     # Create a dictionary of the polynomial parameters...
-    coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
-                   'K1', 'K2', 'K3', 'K4', 'K5',
-                   'f', 'g', 'h')
+    if eclipse:
+        coeffs_tuple_poly = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'K1', 'K2', 'K3', 'K4', 'K5',
+                       'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
+    else:
+        coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'K1', 'K2', 'K3', 'K4', 'K5',
+                       'f', 'g', 'h')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     coeffs_dict_poly = dict()
     for label in coeffs_tuple_poly:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary':
             try:
                 coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[m/2])
             except:
@@ -77,16 +90,22 @@ for m in range(len(PP)):
                 except: # the limb darkening law
                     coeffs_dict_poly[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of polynomial parameters to fix
-    fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     # Create a dictionary of the PLD paramters...
-    coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
-                   'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
-                   'g', 'h')
+    if eclipse:
+        coeffs_tuple_PLD = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+                       'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
+    else:
+        coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
+                       'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+                       'g', 'h')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
+
     coeffs_dict_PLD = dict()
     for label in coeffs_tuple_PLD:
-        if label != 'u':
+        if label != 'u' and label != 't_secondary':
             try:
                 coeffs_dict_PLD[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[m/2])
             except:
@@ -95,10 +114,16 @@ for m in range(len(PP)):
                 except: # the limb darkening law
                     coeffs_dict_PLD[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of PLD parameters to fix
-    fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
+    # Prior coefficients
+    try:
+        prior_coeffs = inputData[int(np.where(inputData.T[0]=='prior_coeffs')[0])][1].split(', ')
+    except:
+        prior_coeffs = []
 
-
+    if len(prior_coeffs) > 1.:
+        gaussian_priors = True
+    else:
+        gaussian_priors = False
 
     method = PP[m][0]
     channel = PP[m][2]
@@ -175,20 +200,25 @@ for m in range(len(PP)):
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
 
-            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = t[len(t)/2], t[len(t)/2]
+            if eclipse:
+                coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])
+            else:
+                coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m/2]), float(t0s[m/2])
 
-            result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc)
+            result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly,
+                                                        coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
             popt = result.x
 
             labels_poly = [ key for key in coeffs_tuple_poly if key not in fix_coeffs_poly ]
             fitted_params_poly = [key for key in batman_params_poly.__dict__ if key in labels_poly]
 
             # Inflate the errors
-            newlcerr = inflate_errs(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params,x=x,y=y, method = method)
+            newlcerr = inflate_errs(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly,
+            fix_coeffs_poly, batman_params_poly, poly_params,x=x,y=y, method = method, eclipse = eclipse)
 
             # Run MCMC
             bounds = make_bounds(coeffs_tuple_poly, fix_coeffs_poly, t)
-            data = (t, x,y, lc, newlcerr, bounds, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params)
+            data = (t, x,y, lc, newlcerr, bounds, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params, gaussian_priors, prior_coeffs, eclipse)
             sampler = mcmc_poly(popt, data, nwalkers = 50, burnin_steps = 500, production_steps = 1000)
 
             samples = sampler.chain
@@ -211,21 +241,28 @@ for m in range(len(PP)):
                 samples = sampler.chain
                 samples_fc = sampler.flatchain
 
-            if 't0' not in fix_coeffs_poly:
-                samples_fc = t0_Tinitial(samples_fc, "flatchain", labels_poly, n*cuttime/(60*24))
-                samples = t0_Tinitial(samples, "chain", labels_poly, n*cuttime/(60*24))
+            if eclipse:
+                if 't_secondary' not in fix_coeffs_poly:
+                    samples_fc = t0_Tinitial(samples_fc, "flatchain", labels_poly, n*cuttime/(60*24))
+                    samples = t0_Tinitial(samples, "chain", labels_poly, n*cuttime/(60*24))
+                else:
+                    pass
             else:
-                pass
+                if 't0' not in fix_coeffs_poly:
+                    samples_fc = t0_Tinitial(samples_fc, "flatchain", labels_poly, n*cuttime/(60*24))
+                    samples = t0_Tinitial(samples, "chain", labels_poly, n*cuttime/(60*24))
+                else:
+                    pass
 
             # Calculate the median and standard deviation
             meds = np.median(samples_fc,axis=0)
             stds = np.std(samples_fc,axis=0)
 
             # Calculate the residuals and the rms
-            optflux = model_poly(popt, t, x, y, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params, components = False)
+            optflux = model_poly(popt, t, x, y, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params, components = False, eclipse = eclipse)
             residuals = lc - optflux
             rms = np.sqrt(np.sum(residuals**2)/len(residuals))
-            chi2 = chi(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params, x=x,y=y, method = 'poly')/(len(lc)-len(popt))
+            chi2 = chi(popt, t, lc, lcerr, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params, x=x,y=y, method = 'poly', eclipse = eclipse)/(len(lc)-len(popt))
 
             cutstart_poly.append(ncutframes)
             avgs_poly.append([meds[:len(fitted_params_poly)], stds[:len(fitted_params_poly)]])
@@ -237,7 +274,7 @@ for m in range(len(PP)):
                                 x=x, y=y, errors = False, binsize = 50,
                                 name = planet, channel = channel, orbit = AOR, savefile = True, TT_hjd = None,
                                 method = "poly", color = 'b', scale = scale, filext = "cutStart", foldext=foldext,
-                                showCuts = True, ncutstarts = ncuts, cutstartTime = cuttime)
+                                showCuts = True, ncutstarts = ncuts, cutstartTime = cuttime, eclipse = eclipse)
 
         fig, ax = plt.subplots(1, len(fitted_params_poly)+1, figsize=(5*(len(fitted_params_poly)+1), 5))
         for k in range(len(fitted_params_poly)):
@@ -274,9 +311,12 @@ for m in range(len(PP)):
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
 
-            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = t[len(t)/2], t[len(t)/2]
+            if eclipse:
+                coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])
+            else:
+                coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m/2]), float(t0s[m/2])
 
-            result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc)
+            result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, t, timeseries, centroids, lc, eclipse = eclipse)
             popt_PLD = result_PLD.x
 
             # Labels of all of the fitted parameters
@@ -284,11 +324,12 @@ for m in range(len(PP)):
             fitted_params_PLD = [key for key in batman_params_PLD.__dict__ if key in labels_PLD]
 
             # Inflate the errors
-            newlcerr = inflate_errs(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = method)
+            newlcerr = inflate_errs(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = method, eclipse = eclipse)
 
             # Run MCMC
             bounds = make_bounds(coeffs_tuple_PLD, fix_coeffs_PLD, t)
-            data = (t, Pns, lc, newlcerr, bounds, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params)
+            data = (t, Pns, lc, newlcerr, bounds, coeffs_dict_PLD, coeffs_tuple_PLD,
+            fix_coeffs_PLD, batman_params_PLD, PLD_params, gaussian_priors, prior_coeffs, eclipse)
             sampler = mcmc_PLD(popt_PLD, data, nwalkers = 50, burnin_steps = 500, production_steps = 1000)
 
             samples = sampler.chain
@@ -311,11 +352,18 @@ for m in range(len(PP)):
                 samples = sampler.chain
                 samples_fc = sampler.flatchain
 
-            if 't0' not in fix_coeffs_PLD:
-                samples_fc = t0_Tinitial(samples_fc, "flatchain", labels_PLD, n*cuttime/(60*24))
-                samples = t0_Tinitial(samples, "chain", labels_PLD, n*cuttime/(60*24))
+            if eclipse:
+                if 't_secondary' not in fix_coeffs_PLD:
+                    samples_fc = t0_Tinitial(samples_fc, "flatchain", labels_PLD, n*cuttime/(60*24))
+                    samples = t0_Tinitial(samples, "chain", labels_PLD, n*cuttime/(60*24))
+                else:
+                    pass
             else:
-                pass
+                if 't0' not in fix_coeffs_PLD:
+                    samples_fc = t0_Tinitial(samples_fc, "flatchain", labels_PLD, n*cuttime/(60*24))
+                    samples = t0_Tinitial(samples, "chain", labels_PLD, n*cuttime/(60*24))
+                else:
+                    pass
 
             # Calculate the median and standard deviation
             meds = np.median(samples_fc,axis=0)
@@ -324,10 +372,10 @@ for m in range(len(PP)):
             # Find index of rp and save to an array
 
             # Calculate the residuals and the rms
-            optflux = model_PLD(popt_PLD, t, Pns, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, components = False)
+            optflux = model_PLD(popt_PLD, t, Pns, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, components = False, eclipse = eclipse)
             residuals = lc - optflux
             rms = np.sqrt(np.sum(residuals**2)/len(residuals))
-            chi2 = chi(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = 'PLD')/(len(lc)-len(popt))
+            chi2 = chi(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = 'PLD', eclipse = eclipse)/(len(lc)-len(popt))
 
             cutstart_PLD.append(ncutframes)
             avgs_PLD.append([meds[:len(fitted_params_PLD)], stds[:len(fitted_params_PLD)]])
@@ -340,7 +388,7 @@ for m in range(len(PP)):
                                 Pns = Pns, errors = False, binsize = 50,
                                 name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,
                                 method = "PLD", color = 'r', scale = scale, filext = "cutStart", foldext=foldext,
-                                showCuts = True, ncutstarts = ncuts, cutstartTime = cuttime)
+                                showCuts = True, ncutstarts = ncuts, cutstartTime = cuttime, eclipse = eclipse)
 
         fig, ax = plt.subplots(1, len(fitted_params_PLD)+1, figsize=(5*(len(fitted_params_PLD)+1), 5))
         for k in range(len(fitted_params_PLD)):
