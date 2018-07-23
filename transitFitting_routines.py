@@ -14,7 +14,7 @@ from tabulate import tabulate
 from IPython.display import HTML
 import emcee, corner, collections, warnings
 from matplotlib import gridspec
-import pickle
+
 
 def SaveDictionary(dictionary,File):
     with open(File, "wb") as myFile:
@@ -198,6 +198,15 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
                 bounds[1][ind] = coeffs_dict[param] + coeffs_dict['{}_err'.format(param)]
 
         return bounds
+
+def custom_bin(array, binsize);
+    binned = []
+    start, end = 0, binsize
+    while end < len(array):
+        binned.append(np.mean[array[start:end]] )
+        start += binsize
+        end += binsize
+    return bin
 
 # Polynomial fitting functions
 def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, components = False, eclipse = False):
