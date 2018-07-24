@@ -239,6 +239,7 @@ for i in range(len(PP)):
                    size_bkg_box = bkg_boxsize, radius_bkg_ann = bkg_annradius, size_bkg_ann = bkg_annsize,
                    size_cent_bary = cent_sizebary, passenger57 = True,
                    quiet = False, plot = True, AOR = AOR, planet = planet, channel = channel, sysmethod = method, foldext=foldext)
+
     # Bin the lightcurves and timeseries
     #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
     timeseries = custom_bin(timeseries, binsize)
@@ -271,8 +272,10 @@ for i in range(len(PP)):
     else:
         # If I have given t0 in BJD as opposed to start of observations
         if float(t0s[0]) > 10.:
+            print "converting from BJD to time frmo beginning of observations"
             coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2])-midtimes[0] - 2400000.5, float(t0s[i/2])-midtimes[0]- 2400000.5
         else:
+            print "Time is from beginning of observations"
             coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2]), float(t0s[i/2])
 
     print coeffs_dict_poly

@@ -107,11 +107,7 @@ for m in range(len(AORs)):
     AOR = AORs[m]
     channel = channels[m]
 
-    if eclipse:
-        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m]), float(t0s[m])
-        #coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
-    else:
-        coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
+
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
@@ -143,6 +139,23 @@ for m in range(len(AORs)):
     #Create timeseries, midtimes and maskseries
     timeseries = data_info.create_timeseries()
     midtimes = data_info.midtimes()
+
+    if eclipse:
+        # N_orbits = np.floor((midtimes[0] - T0_bjd)/period)
+        # ET_bjd = T0_bjd + period*(N_orbits+0.5)
+        # TT_bjd = T0_bjd + period*(N_orbits)
+        # t = midtimes - midtimes[0]
+        # coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = ET_bjd- midtimes[0], ET_bjd- midtimes[0]#float(t0s[m]), float(t0s[m])
+        #coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = TT_bjd- midtimes[0], TT_bjd- midtimes[0]
+        coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m]), float(t0s[m])
+    else:
+        # If I have given t0 in BJD as opposed to start of observations
+        if float(t0s[0]) > 10.:
+            print "converting from BJD to time frmo beginning of observations"
+            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m])-midtimes[0] - 2400000.5, float(t0s[m])-midtimes[0]- 2400000.5
+        else:
+            print "Time is from beginning of observations"
+            coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
 
     #Fix bad pixles
     sigma_badpix = 4
@@ -233,6 +246,7 @@ for m in range(len(AORs)):
                         lc, lcerr = lc/scale, lcerr/scale
                         t = (midtimes_red - midtimes_red[0])
                         x, y = centroids_red[:,1], centroids_red[:,0]
+
                         #POLYNOMIAL
                         result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
                         popt = result.x
