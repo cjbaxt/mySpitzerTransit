@@ -48,7 +48,7 @@ class read_files():
         """path = path to folder containing the fits images for one epoch in one band"""
 
         print  "\nReading data from '{}' ... ".format(self.path)
-        files = glob.glob(self.path + '*bcd.fits')
+        files = sorted(glob.glob(self.path + '*bcd.fits'))
 
         if len(files) < 1:
             raise ValueError("No files found, check directory path!")
@@ -87,7 +87,7 @@ class read_files():
     def create_mask_timeseries(self):
         """path = path to folder containing the fits images for one epoch in one band"""
 
-        files = glob.glob(self.path + '*imsk.fits')
+        files = sorted(glob.glob(self.path + '*imsk.fits'))
         test = fits.open(files[0]) #get image dimensions from first frame
 
         naxis = test[0].header['naxis']
@@ -122,7 +122,7 @@ class read_files():
     def calculate(self):
         """Calculate and create arrays containing the information from the headers.
         midtimes = Array containing the midtimes of each frame. Subarray & Full array mode"""
-        files = glob.glob(self.path + '*bcd.fits')
+        files = sorted(glob.glob(self.path + '*bcd.fits'))
 
         if len(files) < 1:
             raise ValueError("No files found, check directory path! \n \t{}".format(self.path))
