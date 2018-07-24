@@ -224,6 +224,7 @@ for i in range(len(PP)):
     cent_method = PP[i][8]
     cent_sizebary = None if PP[i][9] == 'None' else int(PP[i][9])
     photom_radius = float(PP[i][10])
+    binsize = float(PP[i][11])
 
     datapath = "{3}/PhD/SpitzerData/{0}/{1}/{2}/bcd/".format(planet,AOR,channel, os.getenv('HOME'))
 
@@ -238,16 +239,26 @@ for i in range(len(PP)):
                    size_bkg_box = bkg_boxsize, radius_bkg_ann = bkg_annradius, size_bkg_ann = bkg_annsize,
                    size_cent_bary = cent_sizebary, passenger57 = True,
                    quiet = False, plot = True, AOR = AOR, planet = planet, channel = channel, sysmethod = method, foldext=foldext)
+    # Bin the lightcurves and timeseries
+    #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
+    timeseries = custom_bin(timeseries, binsize)
+    centroids = custom_bin(centroids, binsize)
+    midtimes = custom_bin(midtimes, binsize)
+    background = custom_bin(background, binsize)
 
-    lc = lightcurve
-    lcerr = np.sqrt(lc)
-    scale = np.median(lc[:100])
-    print "\nGuess scale: {}".format(scale)
+    # Don't bin the lightcruve right away, we need to get the errors first
+    lc_unbinned = lightcurve*MJysr2lelectrons
+    lcerr_unbinned = np.sqrt(lc_unbinned)
+
+    # Bin the lightcurve and propagate the binning to the errors
+    # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
+    # Shld actually check this by plotting it
+    lc = custom_bin(lc_unbinned, binsize)
+    lcerr = custom_bin(lcerr_unbinned, binsize, error = True)
+    scale = np.median(lc[:int(100/binsize)])
     lc, lcerr = lc/scale, lcerr/scale
     t = (midtimes - midtimes[0])
-    #print "\nTransit times: {}".format(tt)
-
-    x, y = centroids.T[1], centroids.T[0]
+    x, y = centroids[:,1], centroids[:,0]
 
     if eclipse:
         # N_orbits = np.floor((midtimes[0] - T0_bjd)/period)

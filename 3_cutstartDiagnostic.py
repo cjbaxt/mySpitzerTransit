@@ -135,6 +135,7 @@ for m in range(len(PP)):
     cent_method = PP[m][8]
     cent_sizebary = None if PP[m][9] == 'None' else int(PP[m][9])
     photom_radius = float(PP[m][10])
+    binsize = float(PP[m][11])
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
@@ -175,7 +176,7 @@ for m in range(len(PP)):
            sigma_clip_cent = 4, iters_cent = 2, nframes_cent = 30, radius_photom = photom_radius,
            sigma_clip_phot = 4, iters_photom = 2, nframes_photom = 30,
            size_bkg_box = bkg_boxsize , radius_bkg_ann = bkg_annradius, size_bkg_ann = bkg_annsize,
-           size_cent_bary = cent_sizebary, quiet = False, sysmethod = method)
+           size_cent_bary = cent_sizebary, quiet = False, sysmethod = method, binsize_methods_params=binsize)
 
     cutstart_poly, avgs_poly, rmss_poly, chi2s_poly = [],[],[],[]
     cutstart_PLD, avgs_PLD, rmss_PLD, chi2s_PLD = [],[],[],[]
@@ -191,14 +192,30 @@ for m in range(len(PP)):
 
             ncutframes = int(ncutframes)
 
-            lightcurve, timeseries, centroids, midtimes, background = lightcurve_red[ncutframes:], timeseries_red[ncutframes:], centroids_red[ncutframes:], midtimes_red[ncutframes:], background_red[ncutframes:]
+            # Bin the lightcurves and timeseries
+            #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
+            timeseries_red = custom_bin(timeseries_red, binsize)
+            centroids_red = custom_bin(centroids_red, binsize)
+            midtimes_red = custom_bin(midtimes_red, binsize)
+            background_red = custom_bin(background_red, binsize)
 
-            lc = lightcurve*MJysr2lelectrons
-            lcerr = np.sqrt(lc)
-            scale = np.median(lc[:100]) # Guess initial scale
+            timeseries, centroids, midtimes, background = timeseries_red[ncutframes/binsize:], centroids_red[ncutframes/binsize:], midtimes_red[ncutframes/binsize:], background_red[ncutframes/binsize:]
+
+
+            # Don't bin the lightcruve right away, we need to get the errors first
+            lc_unbinned = lightcurve_red*MJysr2lelectrons
+            lcerr_unbinned = np.sqrt(lc_unbinned)
+
+            # Bin the lightcurve and propagate the binning to the errors
+            # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
+            # Shld actually check this by plotting it
+            lc = custom_bin(lc_unbinned[ncutframes:], binsize_methods_params[l])
+            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize_methods_params[l], error = True)
+            scale = np.median(lc[:int(100/binsize_methods_params[l])])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
+
 
             if eclipse:
                 coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])
@@ -302,11 +319,25 @@ for m in range(len(PP)):
 
             ncutframes = int(ncutframes)
 
-            lightcurve, timeseries, centroids, midtimes, background = lightcurve_red[ncutframes:], timeseries_red[ncutframes:], centroids_red[ncutframes:], midtimes_red[ncutframes:], background_red[ncutframes:]
+            # Bin the lightcurves and timeseries
+            #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
+            timeseries_red = custom_bin(timeseries_red, binsize)
+            centroids_red = custom_bin(centroids_red, binsize)
+            midtimes_red = custom_bin(midtimes_red, binsize)
+            background_red = custom_bin(background_red, binsize)
 
-            lc = lightcurve*MJysr2lelectrons
-            lcerr = np.sqrt(lc)
-            scale = np.median(lc[:100]) # Guess initial scale
+            timeseries, centroids, midtimes, background = timeseries_red[ncutframes/binsize:], centroids_red[ncutframes/binsize:], midtimes_red[ncutframes/binsize:], background_red[ncutframes/binsize:]
+
+            # Don't bin the lightcruve right away, we need to get the errors first
+            lc_unbinned = lightcurve_red*MJysr2lelectrons
+            lcerr_unbinned = np.sqrt(lc_unbinned)
+
+            # Bin the lightcurve and propagate the binning to the errors
+            # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
+            # Shld actually check this by plotting it
+            lc = custom_bin(lc_unbinned[ncutframes:], binsize_methods_params[l])
+            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize_methods_params[l], error = True)
+            scale = np.median(lc[:int(100/binsize_methods_params[l])])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
