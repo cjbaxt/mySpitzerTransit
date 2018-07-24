@@ -199,15 +199,17 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
 
         return bounds
 
-def custom_bin(array, binsize, axis = 0):
+def custom_bin(array, binsize, axis = 0, error = False):
     """Function for doing array wise binning over a certain axis"""
     shape = np.array(array.shape)
-    print shape
     shape[axis] = shape[axis]/binsize
     binned = np.zeros(shape)
-    print binned
-    for i in range(shape[axis]):
-        binned[i] = np.mean(array[i:i+binsize])
+    if not error:
+        for i in range(shape[axis]):
+            binned[i] = np.mean(array[i*binsize:i*binsize+binsize])
+    else:
+        for i in range(shape[axis]):
+            binned[i] = np.sqrt(np.sum(array[i*binsize:i*binsize+binsize]**2))/binsize
     return binned
 
 # Polynomial fitting functions
@@ -786,7 +788,6 @@ def lightcurve_binned(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs
 
         return binned_opt, binned_midtimes
 
-
 def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params,
                     x = None, y = None, Pns = None, errors = False, binsize = 50,
                     name = None, channel = None, orbit = None, savefile = False, TT_hjd = None,
@@ -817,14 +818,9 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
         # Correct the lightcurve and bin the data and the optimum values
         corrected_data = lc / (F*ramp)
-        start, end = 0, binsize
-        binned_data, binned_opt, binned_times = [], [], []
-        while end < len(corrected_data):
-            binned_data.append( np.mean(corrected_data[start:end]) )
-            binned_opt.append( np.mean(transit[start:end]) )
-            binned_times.append((t)[start])
-            start += binsize
-            end += binsize
+        binned_data = custom_bin(corrected_data, binsize)
+        binned_opt = custom_bin(transit, binsize)
+        binned_times = custom_bin(t, binsize)
 
         # Calculate the residuals
         residuals = lc - optflux
@@ -902,14 +898,9 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
         # Correct the lightcurve and bin the data and the optimum values
         corrected_data = lc - pixels - ramp
-        start, end = 0, binsize
-        binned_data, binned_opt, binned_times = [], [], []
-        while end < len(corrected_data):
-            binned_data.append( np.mean(corrected_data[start:end]) )
-            binned_opt.append( np.mean(DE[start:end]) )
-            binned_times.append((t)[start])
-            start += binsize
-            end += binsize
+        binned_data = custom_bin(corrected_data, binsize)
+        binned_opt = custom_bin(DE, binsize)
+        binned_times = custom_bin(t, binsize)
 
         # Calculate the residuals
         residuals = lc - optflux
