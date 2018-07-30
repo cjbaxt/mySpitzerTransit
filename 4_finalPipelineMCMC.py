@@ -370,7 +370,7 @@ for i in range(len(PP)):
 
         datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
                     'midtimes':t, 'x':x, 'y':y, 'background':bkg,
-                    'timeseries':timeseries}
+                    'timeseries':timeseries, 'scale': scale}
 
         labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
 
@@ -489,7 +489,7 @@ for i in range(len(PP)):
 
         datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
                     'midtimes':t, 'Pns':Pns, 'background':bkg,
-                    'timeseries':timeseries}
+                    'timeseries':timeseries, 'scale': scale}
 
         labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
 

@@ -12,7 +12,7 @@ from photutils import CircularAperture, aperture_photometry, CircularAperture
 import batman
 from tabulate import tabulate
 from IPython.display import HTML
-import emcee, corner, collections, warnings
+import emcee, corner, collections, warnings, pickle
 from matplotlib import gridspec
 
 

@@ -135,7 +135,7 @@ for m in range(len(PP)):
     cent_method = PP[m][8]
     cent_sizebary = None if PP[m][9] == 'None' else int(PP[m][9])
     photom_radius = float(PP[m][10])
-    binsize = float(PP[m][11])
+    binsize = int(PP[m][11])
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
@@ -176,7 +176,7 @@ for m in range(len(PP)):
            sigma_clip_cent = 4, iters_cent = 2, nframes_cent = 30, radius_photom = photom_radius,
            sigma_clip_phot = 4, iters_photom = 2, nframes_photom = 30,
            size_bkg_box = bkg_boxsize , radius_bkg_ann = bkg_annradius, size_bkg_ann = bkg_annsize,
-           size_cent_bary = cent_sizebary, quiet = False, sysmethod = method, binsize_methods_params=binsize)
+           size_cent_bary = cent_sizebary, quiet = False, sysmethod = method)
 
     cutstart_poly, avgs_poly, rmss_poly, chi2s_poly = [],[],[],[]
     cutstart_PLD, avgs_PLD, rmss_PLD, chi2s_PLD = [],[],[],[]
@@ -209,9 +209,9 @@ for m in range(len(PP)):
             # Bin the lightcurve and propagate the binning to the errors
             # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
             # Shld actually check this by plotting it
-            lc = custom_bin(lc_unbinned[ncutframes:], binsize_methods_params[l])
-            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize_methods_params[l], error = True)
-            scale = np.median(lc[:int(100/binsize_methods_params[l])])
+            lc = custom_bin(lc_unbinned[ncutframes:], binsize)
+            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize, error = True)
+            scale = np.median(lc[:int(100/binsize)])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
