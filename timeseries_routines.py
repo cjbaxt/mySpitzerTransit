@@ -33,7 +33,7 @@ class stdPhotom():
         "Method to evaluate the weighted standard deviation of the aperture photometry"
         positions = [(15.,15.)]
         apertures = CircularAperture(positions, r=radius)
-        photoms = [aperture_photometry(frame, apertures, method='subpixel', subpixels=5)[0][0] for frame in self.data]
+        photoms = [aperture_photometry(frame, apertures, method='subpixel', subpixels=5)['aperture_sum'][0] for frame in self.data]
         return np.std(photoms)/(np.mean(photoms))
 
 # Class to read the files, create timeseries and get infotmation from header
@@ -294,7 +294,7 @@ def bad_pix_mask(timeseries, sigmathresh, quiet = False):
     if not quiet: print "\t {0} out of {1} bad pixels masked".format(counter, timeseries.shape[0]*timeseries.shape[1]*timeseries.shape[2])
     return timeseries
 
-def fast_bad_pix_mask(timeseries, sigmathresh, nframes, quiet = False, foldext=None):
+def fast_bad_pix_mask(timeseries, sigmathresh, nframes, quiet = False, foldext=None, ret = False):
     """Function that looks for transient bad pixels, outliers in the data and corrects
     them to the median of the surrounding pixels in the timeseries"""
 
@@ -332,8 +332,10 @@ def fast_bad_pix_mask(timeseries, sigmathresh, nframes, quiet = False, foldext=N
 
     if not quiet: print "\t {0} out of {1} bad pixels masked ({2:.3f}%)".format(counter, timeseries.shape[0]*timeseries.shape[1]*timeseries.shape[2],
                                                                             float(counter*100.)/float(timeseries.shape[0]*timeseries.shape[1]*timeseries.shape[2]))
-
-    return timeseries
+    if ret:
+        return timeseries, float(counter*100.)/float(timeseries.shape[0]*timeseries.shape[1]*timeseries.shape[2])
+    else:
+        return timeseries
 
 ##def old_bad_pix_mask(timeseries, sigmathresh, quiet = False):
 ##    """Mask the bad pixels over a certain threshold.
@@ -404,7 +406,7 @@ def bck_subtract(timeseries, method, positions=None, radius=None, size=None, box
         for i in range(len(timeseries)):
             positions = [15,15]
             annulus = CircularAnnulus(positions, r_in = radius, r_out = radius+size)
-            photom_bkg = aperture_photometry(timeseries[i], annulus, method='subpixel', subpixels=5)[0][0]
+            photom_bkg = aperture_photometry(timeseries[i], annulus, method='subpixel', subpixels=5)['aperture_sum'][0]
             area = np.pi*((radius+size)**2 - (radius)**2)
             photomperpix = photom_bkg/area
             bkg.append(photomperpix)
@@ -850,14 +852,14 @@ def aperture_photom(timeseries, centroids, radius, quiet = False, foldext=None):
     for i in range(len(timeseries)):
         positions = centroids[i] - 0.5
         apertures = CircularAperture(positions, r=radius)
-        photom = aperture_photometry(timeseries[i], apertures, method='subpixel', subpixels=5)
-        lightcurve[i] = photom[0][3]
+        photom = aperture_photometry(timeseries[i], apertures, method='subpixel', subpixels=5)['aperture_sum'][0]
+        lightcurve[i] = photom
 
     if not quiet: print "\t Success"
 
     return lightcurve
 
-def sigma_clip_photom(photom, timeseries, centroids, midtimes, background, sigmaclip, iters, nframes, quiet = False, plot = False, AOR = None, planet = None, channel=None,sysmethod=None, foldext=None):
+def sigma_clip_photom(photom, timeseries, centroids, midtimes, background, sigmaclip, iters, nframes, quiet = False, plot = False, AOR = None, planet = None, channel=None,sysmethod=None, foldext=None, ret = False):
     """Perform 4 or 5 sigma clipping to the data and corresponding arrays """
     if sysmethod == 'poly': c, c2 ='b', '#ff7f0e'
     elif sysmethod == 'PLD': c, c2 = 'r', 'c'
@@ -903,4 +905,7 @@ def sigma_clip_photom(photom, timeseries, centroids, midtimes, background, sigma
             plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_photomClip.png".format(planet, AOR, channel,sysmethod,foldext,os.getenv('HOME')))
             plt.close()
 
-    return photom, timeseries, centroids, midtimes, background
+    if ret:
+        return photom, timeseries, centroids, midtimes, background, nflagged
+    else:
+        return photom, timeseries, centroids, midtimes, background

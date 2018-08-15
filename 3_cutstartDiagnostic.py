@@ -216,6 +216,21 @@ for m in range(len(PP)):
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
 
+            # if planet == 'Wasp13b':
+            #     ind0 = find_nearest(t,0.19)
+            #     ind1 = find_nearest(t,0.22)
+            #
+            #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+            #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+            #     x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+            #     y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+            #     t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+            #     timeseries = np.delete(timeseries, np.arange(ind0,ind1,1), axis = 0)
+            #     centroids = np.delete(centroids, np.arange(ind0,ind1,1), axis = 0)
+            #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
+            # else:
+            #     pass
+
 
             if eclipse:
                 coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])
@@ -341,6 +356,21 @@ for m in range(len(PP)):
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
+
+            # if planet == 'Wasp13b':
+            #     ind0 = find_nearest(t,0.19)
+            #     ind1 = find_nearest(t,0.22)
+            #
+            #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+            #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+            #     x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+            #     y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+            #     t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+            #     timeseries = np.delete(timeseries, np.arange(ind0,ind1,1), axis = 0)
+            #     centroids = np.delete(centroids, np.arange(ind0,ind1,1), axis = 0)
+            #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
+            # else:
+            #     pass
 
             if eclipse:
                 coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])
