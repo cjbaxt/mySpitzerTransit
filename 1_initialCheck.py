@@ -171,24 +171,24 @@ for m in range(len(AORs)):
 
     plt.plot(t)
     plt.show()
-    # if (planet == 'Wasp13b') and (channel == 'ch1'):
-    #     ind0 = find_nearest(t,0.190)
-    #     ind1 = find_nearest(t,0.215)
-    #
-    #     # Try cutting out the data
-    #     # lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
-    #     # lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
-    #     # x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
-    #     # y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
-    #     # t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
-    #     # timeseries_red = np.delete(timeseries_red, np.arange(ind0,ind1,1), axis = 0)
-    #     # centroids_red = np.delete(centroids_red, np.arange(ind0,ind1,1), axis = 0)
-    #     # background_red = np.delete(background_red, np.arange(ind0,ind1,1), axis = 0)
-    #
-    #     # Try giving large errorbars to the data
-    #     lcerr[ind0:ind1] = 1e6*lcerr[ind0:ind1]
-    # else:
-    #     pass
+    if (planet == 'Wasp13b') and (channel == 'ch1'):
+        ind0 = find_nearest(t,0.190)
+        ind1 = find_nearest(t,0.215)
+
+        # Try cutting out the data
+        # lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+        # lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+        # x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+        # y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+        # t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+        # timeseries_red = np.delete(timeseries_red, np.arange(ind0,ind1,1), axis = 0)
+        # centroids_red = np.delete(centroids_red, np.arange(ind0,ind1,1), axis = 0)
+        # background_red = np.delete(background_red, np.arange(ind0,ind1,1), axis = 0)
+    
+        # Try giving large errorbars to the data
+        lcerr[ind0:ind1] = 1e6*lcerr[ind0:ind1]
+    else:
+        pass
 
     if eclipse:
         N_orbits = np.floor((midtimes_red[0] - T0_bjd)/period)
