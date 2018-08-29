@@ -262,9 +262,9 @@ for m in range(len(AORs)):
                         # else:
                         #     pass
 
+                        #print coeffs_dict_poly
+                        #print coeffs_tuple_poly
 
-                        print coeffs_dict_poly
-                        print coeffs_tuple_poly
                         #POLYNOMIAL
                         result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
                         popt = result.x
@@ -324,6 +324,7 @@ for m in range(len(AORs)):
                     except Exception as e:
                         print "Skipping pipeline iteration: {}-{}-{}-{}".format(bkg_methods_params[i], cent_methods_params[j], photom_methods_params[k], binsize_methods_params[l])
                         print(e)
+
                         chi2_poly[i][j][k][l] = np.nan
                         chi2_PLD[i][j][k][l] = np.nan
                         for q in range(len(popt)):
@@ -344,7 +345,7 @@ for m in range(len(AORs)):
     index = np.where(chi2_poly == np.nanmin(chi2_poly))
 
     try:
-        chi2_photom_poly = chi2_poly[index[0][0]][index[1][0]]
+        chi2_photom_poly = chi2_poly[index[0][0]][index[1][0][index[2][0]]
         plt.plot(photom_methods_params, chi2_photom_poly)
         plt.xlabel("Aperture radius")
         plt.ylabel("Chi2")
@@ -375,7 +376,7 @@ for m in range(len(AORs)):
     index_PLD = np.where(chi2_PLD == np.nanmin(chi2_PLD))
 
     try:
-        chi2_photom_PLD = chi2_PLD[index_PLD[0][0]][index_PLD[1][0]]
+        chi2_photom_PLD = chi2_PLD[index_PLD[0][0]][index_PLD[1][0][index_PLD[2][0]]
         print len(chi2_photom_PLD), len(photom_methods_params)
         plt.plot(photom_methods_params, chi2_photom_PLD)
         plt.xlabel("Aperture radius")
@@ -391,7 +392,7 @@ for m in range(len(AORs)):
                                                     bkg_methods_params[index_PLD[0][0]][1],bkg_methods_params[index_PLD[0][0]][2],
                                                     cent_methods[index_PLD[1][0]], cent_methods_params[index_PLD[1][0]],
                                                     photom_methods_params[index_PLD[2][0]],
-                                                    binsize_methods_params[index[3][0]]))
+                                                    binsize_methods_params[index_PLD[3][0]]))
 
 
 f.close()
