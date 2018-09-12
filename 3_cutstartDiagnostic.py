@@ -135,6 +135,7 @@ for m in range(len(PP)):
     cent_method = PP[m][8]
     cent_sizebary = None if PP[m][9] == 'None' else int(PP[m][9])
     photom_radius = float(PP[m][10])
+    binsize = int(PP[m][11])
 
     # Get the interpolated limb darkening coefficients
     ldcoeffs, ldcoeffs_err = getldcoeffs(star_params['Teff'],star_params['logg'],star_params['z'],
@@ -191,20 +192,54 @@ for m in range(len(PP)):
 
             ncutframes = int(ncutframes)
 
-            lightcurve, timeseries, centroids, midtimes, background = lightcurve_red[ncutframes:], timeseries_red[ncutframes:], centroids_red[ncutframes:], midtimes_red[ncutframes:], background_red[ncutframes:]
+            # Bin the lightcurves and timeseries
+            #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
+            timeseries_red = custom_bin(timeseries_red, binsize)
+            centroids_red = custom_bin(centroids_red, binsize)
+            midtimes_red = custom_bin(midtimes_red, binsize)
+            background_red = custom_bin(background_red, binsize)
 
-            lc = lightcurve*MJysr2lelectrons
-            lcerr = np.sqrt(lc)
-            scale = np.median(lc[:100]) # Guess initial scale
+            timeseries, centroids, midtimes, background = timeseries_red[ncutframes/binsize:], centroids_red[ncutframes/binsize:], midtimes_red[ncutframes/binsize:], background_red[ncutframes/binsize:]
+
+
+            # Don't bin the lightcruve right away, we need to get the errors first
+            lc_unbinned = lightcurve_red*MJysr2lelectrons
+            lcerr_unbinned = np.sqrt(lc_unbinned)
+
+            # Bin the lightcurve and propagate the binning to the errors
+            # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
+            # Shld actually check this by plotting it
+            lc = custom_bin(lc_unbinned, binsize)
+            lcerr = custom_bin(lcerr_unbinned, binsize, error = True)
+            lc, lcerr = lc[ncutframes/binsize:], lcerr[ncutframes/binsize:]
+
+            scale = np.median(lc[:int(100/binsize)])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
+
+            # if planet == 'Wasp13b':
+            #     ind0 = find_nearest(t,0.19)
+            #     ind1 = find_nearest(t,0.22)
+            #
+            #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+            #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+            #     x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+            #     y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+            #     t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+            #     timeseries = np.delete(timeseries, np.arange(ind0,ind1,1), axis = 0)
+            #     centroids = np.delete(centroids, np.arange(ind0,ind1,1), axis = 0)
+            #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
+            # else:
+            #     pass
+
 
             if eclipse:
                 coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])
             else:
                 coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m/2]), float(t0s[m/2])
 
+            print len(lc), len(x), len(t)
             result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly,
                                                         coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
             popt = result.x
@@ -302,14 +337,43 @@ for m in range(len(PP)):
 
             ncutframes = int(ncutframes)
 
-            lightcurve, timeseries, centroids, midtimes, background = lightcurve_red[ncutframes:], timeseries_red[ncutframes:], centroids_red[ncutframes:], midtimes_red[ncutframes:], background_red[ncutframes:]
+            # Bin the lightcurves and timeseries
+            #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
+            timeseries_red = custom_bin(timeseries_red, binsize)
+            centroids_red = custom_bin(centroids_red, binsize)
+            midtimes_red = custom_bin(midtimes_red, binsize)
+            background_red = custom_bin(background_red, binsize)
 
-            lc = lightcurve*MJysr2lelectrons
-            lcerr = np.sqrt(lc)
-            scale = np.median(lc[:100]) # Guess initial scale
+            timeseries, centroids, midtimes, background = timeseries_red[ncutframes/binsize:], centroids_red[ncutframes/binsize:], midtimes_red[ncutframes/binsize:], background_red[ncutframes/binsize:]
+
+            # Don't bin the lightcruve right away, we need to get the errors first
+            lc_unbinned = lightcurve_red*MJysr2lelectrons
+            lcerr_unbinned = np.sqrt(lc_unbinned)
+
+            # Bin the lightcurve and propagate the binning to the errors
+            # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
+            # Shld actually check this by plotting it
+            lc = custom_bin(lc_unbinned[ncutframes:], binsize)
+            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize, error = True)
+            scale = np.median(lc[:int(100/binsize)])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
+
+            # if planet == 'Wasp13b':
+            #     ind0 = find_nearest(t,0.19)
+            #     ind1 = find_nearest(t,0.22)
+            #
+            #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+            #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+            #     x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+            #     y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+            #     t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+            #     timeseries = np.delete(timeseries, np.arange(ind0,ind1,1), axis = 0)
+            #     centroids = np.delete(centroids, np.arange(ind0,ind1,1), axis = 0)
+            #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
+            # else:
+            #     pass
 
             if eclipse:
                 coeffs_dict_poly['t_secondary'], coeffs_dict_PLD['t_secondary'] = float(t0s[m/2]), float(t0s[m/2])

@@ -12,9 +12,9 @@ from photutils import CircularAperture, aperture_photometry, CircularAperture
 import batman
 from tabulate import tabulate
 from IPython.display import HTML
-import emcee, corner, collections, warnings
+import emcee, corner, collections, warnings, pickle
 from matplotlib import gridspec
-import pickle
+
 
 def SaveDictionary(dictionary,File):
     with open(File, "wb") as myFile:
@@ -198,6 +198,19 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
                 bounds[1][ind] = coeffs_dict[param] + coeffs_dict['{}_err'.format(param)]
 
         return bounds
+
+def custom_bin(array, binsize, axis = 0, error = False):
+    """Function for doing array wise binning over a certain axis"""
+    shape = np.array(array.shape)
+    shape[axis] = shape[axis]/binsize
+    binned = np.zeros(shape)
+    if not error:
+        for i in range(shape[axis]):
+            binned[i] = np.mean(array[i*binsize:i*binsize+binsize], axis = axis)
+    else:
+        for i in range(shape[axis]):
+            binned[i] = np.sqrt(np.sum(array[i*binsize:i*binsize+binsize]**2, axis = axis))/binsize
+    return binned
 
 # Polynomial fitting functions
 def model_poly(coeffs, t, x, y, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params, components = False, eclipse = False):
@@ -598,7 +611,7 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
                x0guess = None, y0guess = None,
                size_bkg_box = None, radius_bkg_ann = None, size_bkg_ann = None,
                size_cent_bary = None, quiet = False,  passenger57 = False,
-               plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = ''):
+               plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = '', ret = False):
                # Must be sigma_clip_phot because function is called sigma_clip_photom!!!
     """
     timeseries = original timeseries from the first part of the pipeline
@@ -635,9 +648,13 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
     print "\t Exptime = {}, Readnoise = {}, Gain = {}, Fluxconv = {}, Framtime = {}".format(exptime, readnoise, gain, fluxconv, framtime)
     print "\t MJy/sr to electrons conversion factor = {}".format(MJysr2lelectrons)
 
-    #Fix bad pixles
-    timeseries = fast_bad_pix_mask(timeseries, sigma_badpix, nframes_badpix, quiet = quiet, foldext=foldext)
+    stats = {}
 
+    #Fix bad pixles
+    if ret:
+        timeseries, stats['Bad pix %'] = fast_bad_pix_mask(timeseries, sigma_badpix, nframes_badpix, quiet = quiet, foldext=foldext, ret = ret)
+    else:
+        timeseries = fast_bad_pix_mask(timeseries, sigma_badpix, nframes_badpix, quiet = quiet, foldext=foldext, ret = ret)
     #Subtract background
     timeseries, background = bck_subtract(timeseries, method = method_bkg,
                                            boxsize = size_bkg_box,
@@ -661,11 +678,16 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
     # Doing this isn't really fair because the points could be valid! Need to do it after the initial fit.
     #lightcurve, timeseries, centroids, midtimes, background = sigma_clip_photom(lightcurve, timeseries, centroids, midtimes, background, sigma_clip_phot, iters_photom, nframes_photom, quiet = quiet, plot = plot, AOR = AOR, planet = planet, channel = channel,sysmethod=sysmethod, foldext=foldext)
 
-    lightcurve, timeseries, centroids, midtimes, background = sigma_clip_photom(lightcurve, timeseries, centroids, midtimes, background,
-                                                                5, 1, len(lightcurve),
-                                                                quiet = quiet, plot = plot, AOR = AOR, planet = planet, channel = channel,sysmethod=sysmethod, foldext=foldext)
-
-    return lightcurve*MJysr2lelectrons, timeseries, centroids, midtimes, background
+    if ret:
+        lightcurve, timeseries, centroids, midtimes, background, stats['N sigma clip photom'] = sigma_clip_photom(lightcurve, timeseries, centroids, midtimes, background,
+                                                                        5, 1, len(lightcurve),
+                                                                        quiet = quiet, plot = plot, AOR = AOR, planet = planet, channel = channel,sysmethod=sysmethod, foldext=foldext, ret = ret)
+        return lightcurve*MJysr2lelectrons, timeseries, centroids, midtimes, background, stats
+    else:
+        lightcurve, timeseries, centroids, midtimes, background = sigma_clip_photom(lightcurve, timeseries, centroids, midtimes, background,
+                                                                        5, 1, len(lightcurve),
+                                                                        quiet = quiet, plot = plot, AOR = AOR, planet = planet, channel = channel, sysmethod = sysmethod, foldext = foldext)
+        return lightcurve*MJysr2lelectrons, timeseries, centroids, midtimes, background
 
 def runPipeline(timeseries_badpixmask, midtimes,
                method_bkg = None, method_cent = None, plotting_binsize = None,
@@ -775,7 +797,6 @@ def lightcurve_binned(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs
 
         return binned_opt, binned_midtimes
 
-
 def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, sys_params,
                     x = None, y = None, Pns = None, errors = False, binsize = 50,
                     name = None, channel = None, orbit = None, savefile = False, TT_hjd = None,
@@ -806,14 +827,9 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
         # Correct the lightcurve and bin the data and the optimum values
         corrected_data = lc / (F*ramp)
-        start, end = 0, binsize
-        binned_data, binned_opt, binned_times = [], [], []
-        while end < len(corrected_data):
-            binned_data.append( np.mean(corrected_data[start:end]) )
-            binned_opt.append( np.mean(transit[start:end]) )
-            binned_times.append((t)[start])
-            start += binsize
-            end += binsize
+        binned_data = custom_bin(corrected_data, binsize)
+        binned_opt = custom_bin(transit, binsize)
+        binned_times = custom_bin(t, binsize)
 
         # Calculate the residuals
         residuals = lc - optflux
@@ -891,14 +907,9 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
         # Correct the lightcurve and bin the data and the optimum values
         corrected_data = lc - pixels - ramp
-        start, end = 0, binsize
-        binned_data, binned_opt, binned_times = [], [], []
-        while end < len(corrected_data):
-            binned_data.append( np.mean(corrected_data[start:end]) )
-            binned_opt.append( np.mean(DE[start:end]) )
-            binned_times.append((t)[start])
-            start += binsize
-            end += binsize
+        binned_data = custom_bin(corrected_data, binsize)
+        binned_opt = custom_bin(DE, binsize)
+        binned_times = custom_bin(t, binsize)
 
         # Calculate the residuals
         residuals = lc - optflux
@@ -974,7 +985,7 @@ def plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict, coeffs_tuple, fix_coeffs, 
 
 def inflate_errs(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
                  fix_coeffs, batman_params, params,
-                 x=None, y=None, Pns=None, method = None, eclipse = False):
+                 x=None, y=None, Pns=None, method = None, eclipse = False, ret = False):
 
     """Function to inflate the errors so we have a reduced chi2 of 1."""
 
@@ -1010,7 +1021,10 @@ def inflate_errs(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple,
 
         print "\t New Reduced Chi2: {:.2f}".format(new_redChi2)
 
-    return newlcerr
+    if ret:
+        return newlcerr, redChi2
+    else:
+        return newlcerr
 
 def fold_inc(sampler, chaintype, labels):
 
@@ -1271,7 +1285,7 @@ def lnprior_PLD(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, pr
 
     return prior
 
-def mcmc_PLD(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False):
+def mcmc_PLD(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False, ret = False):
 
     print "\nStarting MCMC..."
 
@@ -1289,10 +1303,14 @@ def mcmc_PLD(initial, data, nwalkers = 200, burnin_steps = 1000, production_step
     print("\t Running production: {} steps".format(production_steps))
     p0, _, _ = sampler.run_mcmc(p0, production_steps)
 
+    frac = np.mean(sampler.acceptance_fraction)
     print("\t Mean acceptance fraction: {0:.3f}"
-           .format(np.mean(sampler.acceptance_fraction)))
+           .format(frac))
 
-    return sampler
+    if ret:
+        return sampler, frac
+    else:
+        return sampler
 
 # Functions for MCMC parameter exploration of polynomial
 def lnprob_poly(theta, t, x,y, lc, lcerrs, bounds,
@@ -1347,7 +1365,7 @@ def lnprior_poly(theta, bounds, batman_params, fitted_coeffs, gaussian_priors, p
 
     return prior
 
-def mcmc_poly(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False):
+def mcmc_poly(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False, ret = False):
 
     print "\nStarting MCMC..."
 
@@ -1364,10 +1382,15 @@ def mcmc_poly(initial, data, nwalkers = 200, burnin_steps = 1000, production_ste
     print("\t Running production: {} steps".format(production_steps))
     p0, _, _ = sampler.run_mcmc(p0, production_steps)
 
+    frac = np.mean(sampler.acceptance_fraction)
     print("\t Mean acceptance fraction: {0:.3f}"
-           .format(np.mean(sampler.acceptance_fraction)))
+           .format(frac))
 
-    return sampler
+    if ret:
+        return sampler, frac
+    else:
+        return sampler
+
 
 # Plotting and convieniently saving the MCMC results...
 def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
@@ -1545,6 +1568,7 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
         plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_rmsVSbinsize.png".format(planet, AOR, channel, method,foldext, os.getenv('HOME')))
         plt.close()
 
+        statsbinsize = {'binsizes':binsizes, 'std devs':std_devs, 'exp std devs': std_devs[0]/(np.sqrt(np.array(binsizes)))}
         ################################# Background Vs residuals Plot #############################
 
         print "\t Plotting background vs residuals and saving to file..."
@@ -1733,7 +1757,7 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
         f.close()
 
     if extraoutputs:
-        return avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting
+        return avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting, statsbinsize
     else:
         return avgs, stds, meds, pos, neg, rms, chi2, bic
 
@@ -1855,7 +1879,7 @@ def pipelineOptPlots(planet, channel, method, AOR, sampleLabels, saveplots = Tru
     plt.xticks( np.arange(len(xticks)), xticks)
     plt.ylabel("Background Method")
     plt.yticks( np.arange(len(yticks)), yticks)
-    plt.colorbar(label = r'$\chi^2_{red}$')
+    plt.colorbar(label = r'$\chi^2_{red}$', cmap=cmap)
     if saveplots:
         plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_GRID_PhotomRadiusVSBkgMethod.png".format(planet, AOR, channel,method,foldext, os.getenv('HOME')),bbox_inches='tight')
     plt.close()
@@ -1868,7 +1892,7 @@ def pipelineOptPlots(planet, channel, method, AOR, sampleLabels, saveplots = Tru
     plt.xticks( np.arange(len(xticks)), xticks)
     plt.ylabel("Centroiding Method")
     plt.yticks( np.arange(len(yticks)), yticks)
-    plt.colorbar(label = r'$\chi^2_{red}$')
+    plt.colorbar(label = r'$\chi^2_{red}$', cmap = cmap)
     if saveplots:
         plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_GRID_PhotomRadiusVSCentMethod.png".format(planet, AOR, channel,method,foldext, os.getenv('HOME')),bbox_inches='tight')
     plt.close()
@@ -1881,7 +1905,7 @@ def pipelineOptPlots(planet, channel, method, AOR, sampleLabels, saveplots = Tru
     plt.xticks( np.arange(len(xticks)), xticks)
     plt.ylabel("Background Method")
     plt.yticks( np.arange(len(yticks)), yticks)
-    plt.colorbar(label = r'$\chi^2_{red}$')
+    plt.colorbar(label = r'$\chi^2_{red}$', cmap = cmap)
     if saveplots:
         plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_GRID_CentMethodVSBkgMethod.png".format(planet, AOR, channel,method,foldext, os.getenv('HOME')),bbox_inches='tight')
     plt.close()

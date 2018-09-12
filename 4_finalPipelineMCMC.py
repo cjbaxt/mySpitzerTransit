@@ -224,11 +224,12 @@ for i in range(len(PP)):
     cent_method = PP[i][8]
     cent_sizebary = None if PP[i][9] == 'None' else int(PP[i][9])
     photom_radius = float(PP[i][10])
+    binsize = int(1)
 
     datapath = "{3}/PhD/SpitzerData/{0}/{1}/{2}/bcd/".format(planet,AOR,channel, os.getenv('HOME'))
 
     # If the AOR is the same as the one before do not run the pipeline again (deleted)
-    lightcurve, timeseries, centroids, midtimes, background = runFullPipeline(datapath, 4, 30,
+    lightcurve, timeseries, centroids, midtimes, background, stats = runFullPipeline(datapath, 4, 30,
                    method_bkg = bkg_method, method_cent = cent_method, plotting_binsize = 64,
                    ramp_time = cutstart*60, end_time = cutend*60,
                    sigma_clip_cent = 4, iters_cent = 2, nframes_cent=30,
@@ -237,17 +238,43 @@ for i in range(len(PP)):
                    sigma_clip_phot = 4, iters_photom = 2, nframes_photom=30,
                    size_bkg_box = bkg_boxsize, radius_bkg_ann = bkg_annradius, size_bkg_ann = bkg_annsize,
                    size_cent_bary = cent_sizebary, passenger57 = True,
-                   quiet = False, plot = True, AOR = AOR, planet = planet, channel = channel, sysmethod = method, foldext=foldext)
+                   quiet = False, plot = True, AOR = AOR, planet = planet, channel = channel, sysmethod = method, foldext=foldext, ret = True)
 
-    lc = lightcurve
-    lcerr = np.sqrt(lc)
-    scale = np.median(lc[:100])
-    print "\nGuess scale: {}".format(scale)
+    stats['Cuttime'] = cutstart*60
+    # Bin the lightcurves and timeseries
+    timeseries = custom_bin(timeseries, binsize)
+    centroids = custom_bin(centroids, binsize)
+    midtimes = custom_bin(midtimes, binsize)
+    background = custom_bin(background, binsize)
+
+    # Don't bin the lightcruve right away, we need to get the errors first
+    lc_unbinned = lightcurve
+    lcerr_unbinned = np.sqrt(lc_unbinned)
+
+    # Bin the lightcurve and propagate the binning to the errors
+    # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
+    # Shld actually check this by plotting it
+    lc = custom_bin(lc_unbinned, binsize)
+    lcerr = custom_bin(lcerr_unbinned, binsize, error = True)
+    scale = np.median(lc[:int(100/binsize)])
     lc, lcerr = lc/scale, lcerr/scale
     t = (midtimes - midtimes[0])
-    #print "\nTransit times: {}".format(tt)
+    x, y = centroids[:,1], centroids[:,0]
 
-    x, y = centroids.T[1], centroids.T[0]
+    # if planet == 'Wasp13b':
+    #     ind0 = find_nearest(t,0.19)
+    #     ind1 = find_nearest(t,0.22)
+    #
+    #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+    #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+    #     x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+    #     y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+    #     t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+    #     timeseries = np.delete(timeseries, np.arange(ind0,ind1,1), axis = 0)
+    #     centroids = np.delete(centroids, np.arange(ind0,ind1,1), axis = 0)
+    #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
+    # else:
+    #     pass
 
     if eclipse:
         # N_orbits = np.floor((midtimes[0] - T0_bjd)/period)
@@ -260,8 +287,10 @@ for i in range(len(PP)):
     else:
         # If I have given t0 in BJD as opposed to start of observations
         if float(t0s[0]) > 10.:
+            print "converting from BJD to time frmo beginning of observations"
             coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2])-midtimes[0] - 2400000.5, float(t0s[i/2])-midtimes[0]- 2400000.5
         else:
+            print "Time is from beginning of observations"
             coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[i/2]), float(t0s[i/2])
 
     print coeffs_dict_poly
@@ -298,7 +327,7 @@ for i in range(len(PP)):
         # Least squares again
         result, batman_params, poly_params = fit_function_poly(coeffs_dict_poly,
         coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc,
-        gaussian_priors =gaussian_priors, prior_params =prior_coeffs,
+        gaussian_priors = gaussian_priors, prior_params = prior_coeffs,
         eclipse = eclipse)
         popt = result.x
 
@@ -332,17 +361,17 @@ for i in range(len(PP)):
         labels_poly = [ key for key in coeffs_tuple_poly if key not in fix_coeffs_poly ]
 
         # Inflate the errors
-        newlcerr = inflate_errs(popt, t, lc, lcerr, coeffs_dict_poly,
+        newlcerr, stats['photon noise'] = inflate_errs(popt, t, lc, lcerr, coeffs_dict_poly,
         coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params,x=x,y=y,
-        method = method, eclipse = eclipse)
+        method = method, eclipse = eclipse, ret = True)
 
         # Run MCMC
         bounds = make_bounds(coeffs_tuple_poly, fix_coeffs_poly, t)
         data = (t, x, y, lc, newlcerr, bounds, coeffs_dict_poly, coeffs_tuple_poly,
         fix_coeffs_poly, batman_params, poly_params, gaussian_priors, prior_coeffs, eclipse)
-        sampler = mcmc_poly(popt, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps)
+        sampler, stats['acceptance fraction'] = mcmc_poly(popt, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps, ret = True)
 
-        avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting_stuff = mcmc_results(sampler, popt, t, lc, newlcerr, x,y, None, bkg,
+        avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting_stuff, stats['rms vs binsize'] = mcmc_results(sampler, popt, t, lc, newlcerr, x,y, None, bkg,
                                     coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params, poly_params, scale, labels_poly,
                                     planet, AOR, channel, method, midtimes[0], saveplots=True, foldext=foldext, eclipse = eclipse, extraoutputs=True)
 
@@ -356,7 +385,7 @@ for i in range(len(PP)):
 
         datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
                     'midtimes':t, 'x':x, 'y':y, 'background':bkg,
-                    'timeseries':timeseries}
+                    'timeseries':timeseries, 'scale': scale}
 
         labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
 
@@ -364,16 +393,9 @@ for i in range(len(PP)):
                     "poserr":pos, "negerr":neg, "rms":rms, "chi2":chi2,
                     "bic":bic}
 
-        AORdata = {'Data Reduction': datared,
-               'Results': results,
-               'Fixed Parameters': fixedparameters,
-               'Best Fit': plotting_stuff,
-               'Pipeline Parameters': pipelineparameters}
 
-        AORfilepath = "{2}/PhD/SpitzerTransits/{0}{1}/{0}_{3}_{4}_{5}_ResultsDict.npy".format(planet,foldext, os.getenv('HOME'), AOR, method, channel)
-        np.save(AORfilepath, AORdata)
         # Draw from gaussian
-        ld_coeffs = np.random.normal(ldcoeffs, ldcoeffs_err, 500)
+        ld_coeffs = 3*np.random.normal(ldcoeffs, ldcoeffs_err, 500)
         ldsamples_poly = np.zeros((len(ld_coeffs),len(coeffs_tuple_poly)- len(fix_coeffs_poly)))
 
         for i in range(len(ld_coeffs)):
@@ -389,9 +411,20 @@ for i in range(len(PP)):
 
         index_rp = 1
         print "\nChecking the effect of varying limb darkening..."
-        print "\t1 sigma change in ld produces {} sigma change in rp/r* for poly".format(np.std(ldsamples_poly[:,index_rp])/stds[index_rp])
-
+        print "\t3 sigma change in ld produces {} sigma change in rp/r* for poly".format(np.std(ldsamples_poly[:,index_rp])/stds[index_rp])
+        stats['limb_darkening'] = np.std(ldsamples_poly[:,index_rp])/stds[index_rp]
         print avgs
+
+        AORdata = {'Data Reduction': datared,
+               'Results': results,
+               'Fixed Parameters': fixedparameters,
+               'Best Fit': plotting_stuff,
+               'Pipeline Parameters': pipelineparameters,
+               'stats': stats}
+
+        AORfilepath = "{2}/PhD/SpitzerTransits/{0}{1}/{0}_{3}_{4}_{5}_ResultsDict.txt".format(planet,foldext, os.getenv('HOME'), AOR, method, channel)
+
+        SaveDictionary(AORdata,AORfilepath)
 
     if method == 'PLD':
 
@@ -452,16 +485,16 @@ for i in range(len(PP)):
         labels_PLD = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
 
         # Inflate the errors
-        newlcerr = inflate_errs(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD,
-        fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = method, eclipse = eclipse)
+        newlcerr, stats['photon noise'] = inflate_errs(popt_PLD, t, lc, lcerr, coeffs_dict_PLD, coeffs_tuple_PLD,
+        fix_coeffs_PLD, batman_params_PLD, PLD_params, Pns=Pns, method = method, eclipse = eclipse, ret = True)
 
         # Run MCMC
         bounds = make_bounds(coeffs_tuple_PLD, fix_coeffs_PLD, t)
         data = (t, Pns, lc, newlcerr, bounds, coeffs_dict_PLD, coeffs_tuple_PLD,
         fix_coeffs_PLD, batman_params_PLD, PLD_params, gaussian_priors, prior_coeffs, eclipse)
-        sampler = mcmc_PLD(popt_PLD, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps)
+        sampler, stats['acceptance fraction'] = mcmc_PLD(popt_PLD, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps, ret = True)
 
-        avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting_stuff = mcmc_results(sampler, popt_PLD,t,lc,newlcerr,x,y,Pns,bkg,
+        avgs, stds, meds, pos, neg, rms, chi2, bic, fixedparameters, plotting_stuff, stats['rms vs binsize'] = mcmc_results(sampler, popt_PLD,t,lc,newlcerr,x,y,Pns,bkg,
                                     coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,scale,
                                     labels_PLD, planet, AOR, channel, method, midtimes[0],
                                     saveplots=True, foldext=foldext, eclipse = eclipse, extraoutputs = True)
@@ -475,28 +508,20 @@ for i in range(len(PP)):
 
         datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
                     'midtimes':t, 'Pns':Pns, 'background':bkg,
-                    'timeseries':timeseries}
+                    'timeseries':timeseries, 'scale': scale}
 
         labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
 
         results = {"parameters":labels, "averages": avgs, "stddevs": stds, "medians":meds,
                     "poserr":pos, "negerr":neg, "rms":rms, "chi2":chi2,
                     "bic":bic}
-                
-        AORdata = {'Data Reduction': datared,
-               'Results': results,
-               'Fixed Parameters': fixedparameters,
-               'Best Fit': plotting_stuff,
-               'Pipeline Parameters': pipelineparameters}
 
-        AORfilepath = "{2}/PhD/SpitzerTransits/{0}{1}/{0}_{3}_{4}_{5}_ResultsDict.txt".format(planet,foldext, os.getenv('HOME'), AOR, method, channel)
-
-        SaveDictionary(AORdata,AORfilepath)
+        # the stats dictionary is stupidly defined all throughotu this shitty convoluted pipeline
 
         leastsquares.append(popt_PLD)
 
         # Draw from gaussian
-        ld_coeffs = np.random.normal(ldcoeffs, ldcoeffs_err, 500)
+        ld_coeffs = 3*np.random.normal(ldcoeffs, ldcoeffs_err, 500)
         ldsamples_PLD = np.zeros((len(ld_coeffs),len(coeffs_tuple_PLD)- len(fix_coeffs_PLD)))
 
         for i in range(len(ld_coeffs)):
@@ -512,9 +537,20 @@ for i in range(len(PP)):
 
         index_rp = 1
         print "\nChecking the effect of varying limb darkening..."
-        print "\t1 sigma change in ld produces {} sigma change in rp/r* for PLD".format(np.std(ldsamples_PLD[:,index_rp])/stds[index_rp])
-
+        print "\t3 sigma change in ld produces {} sigma change in rp/r* for PLD".format(np.std(ldsamples_PLD[:,index_rp])/stds[index_rp])
+        stats['limb_darkening'] = np.std(ldsamples_PLD[:,index_rp])/stds[index_rp]
         print avgs
+
+        AORdata = {'Data Reduction': datared,
+               'Results': results,
+               'Fixed Parameters': fixedparameters,
+               'Best Fit': plotting_stuff,
+               'Pipeline Parameters': pipelineparameters,
+               'stats': stats}
+
+        AORfilepath = "{2}/PhD/SpitzerTransits/{0}{1}/{0}_{3}_{4}_{5}_ResultsDict.txt".format(planet,foldext, os.getenv('HOME'), AOR, method, channel)
+
+        SaveDictionary(AORdata,AORfilepath)
 
     averages.append(avgs)
     stdevs.append(stds)
@@ -524,8 +560,6 @@ for i in range(len(PP)):
     medians.append(meds)
     poserrs.append(pos)
     negerrs.append(neg)
-
-
 
 # Save results to a file so that we can work with them
 # Save results to a file so that we can work with them
