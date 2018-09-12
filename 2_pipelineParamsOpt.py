@@ -245,25 +245,16 @@ for m in range(len(AORs)):
                         t = (midtimes_red - midtimes_red[0])
                         x, y = centroids_red[:,1], centroids_red[:,0]
 
-                        # if (planet == 'Wasp13b') and (channel == 'ch1'):
-                        #     ind0 = find_nearest(t,0.190)
-                        #     ind1 = find_nearest(t,0.215)
-                        #
-                        #     # lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
-                        #     # lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
-                        #     # x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
-                        #     # y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
-                        #     # t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
-                        #     # timeseries_red = np.delete(timeseries_red, np.arange(ind0,ind1,1), axis = 0)
-                        #     # centroids_red = np.delete(centroids_red, np.arange(ind0,ind1,1), axis = 0)
-                        #     # background_red = np.delete(background_red, np.arange(ind0,ind1,1), axis = 0)
-                        #     # Try giving large errorbars to the data
-                        #     lcerr[ind0:ind1] = 1e6*lcerr[ind0:ind1]
-                        # else:
-                        #     pass
+                        if (planet == 'Wasp13b') and (channel == 'ch1'):
+                            ind0 = find_nearest(t,0.190)
+                            ind1 = find_nearest(t,0.215)
 
-                        #print coeffs_dict_poly
-                        #print coeffs_tuple_poly
+                            lcerr[ind0:ind1] = 1e6*lcerr[ind0:ind1]
+                        else:
+                            pass
+
+                        print coeffs_dict_poly
+                        print coeffs_tuple_poly
 
                         #POLYNOMIAL
                         result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
@@ -345,7 +336,7 @@ for m in range(len(AORs)):
     index = np.where(chi2_poly == np.nanmin(chi2_poly))
 
     try:
-        chi2_photom_poly = chi2_poly[index[0][0]][index[1][0][index[2][0]]
+        chi2_photom_poly = chi2_poly[index[0][0]][index[1][0][index[2][0]]]
         plt.plot(photom_methods_params, chi2_photom_poly)
         plt.xlabel("Aperture radius")
         plt.ylabel("Chi2")
@@ -376,7 +367,7 @@ for m in range(len(AORs)):
     index_PLD = np.where(chi2_PLD == np.nanmin(chi2_PLD))
 
     try:
-        chi2_photom_PLD = chi2_PLD[index_PLD[0][0]][index_PLD[1][0][index_PLD[2][0]]
+        chi2_photom_PLD = chi2_PLD[index_PLD[0][0]][index_PLD[1][0][index_PLD[2][0]]]
         print len(chi2_photom_PLD), len(photom_methods_params)
         plt.plot(photom_methods_params, chi2_photom_PLD)
         plt.xlabel("Aperture radius")

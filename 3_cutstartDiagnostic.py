@@ -209,8 +209,10 @@ for m in range(len(PP)):
             # Bin the lightcurve and propagate the binning to the errors
             # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
             # Shld actually check this by plotting it
-            lc = custom_bin(lc_unbinned[ncutframes:], binsize)
-            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize, error = True)
+            lc = custom_bin(lc_unbinned, binsize)
+            lcerr = custom_bin(lcerr_unbinned, binsize, error = True)
+            lc, lcerr = lc[ncutframes/binsize:], lcerr[ncutframes/binsize:]
+
             scale = np.median(lc[:int(100/binsize)])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
@@ -237,6 +239,7 @@ for m in range(len(PP)):
             else:
                 coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m/2]), float(t0s[m/2])
 
+            print len(lc), len(x), len(t)
             result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly,
                                                         coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)
             popt = result.x
@@ -350,9 +353,9 @@ for m in range(len(PP)):
             # Bin the lightcurve and propagate the binning to the errors
             # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
             # Shld actually check this by plotting it
-            lc = custom_bin(lc_unbinned[ncutframes:], binsize_methods_params[l])
-            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize_methods_params[l], error = True)
-            scale = np.median(lc[:int(100/binsize_methods_params[l])])
+            lc = custom_bin(lc_unbinned[ncutframes:], binsize)
+            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize, error = True)
+            scale = np.median(lc[:int(100/binsize)])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
             x, y = centroids[:,1], centroids[:,0]
