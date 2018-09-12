@@ -194,13 +194,12 @@ for m in range(len(PP)):
 
             # Bin the lightcurves and timeseries
             #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
-            timeseries_red = custom_bin(timeseries_red, binsize)
-            centroids_red = custom_bin(centroids_red, binsize)
-            midtimes_red = custom_bin(midtimes_red, binsize)
-            background_red = custom_bin(background_red, binsize)
+            timeseries = custom_bin(timeseries_red, binsize)
+            centroids = custom_bin(centroids_red, binsize)
+            midtimes = custom_bin(midtimes_red, binsize)
+            background = custom_bin(background_red, binsize)
 
-            timeseries, centroids, midtimes, background = timeseries_red[ncutframes/binsize:], centroids_red[ncutframes/binsize:], midtimes_red[ncutframes/binsize:], background_red[ncutframes/binsize:]
-
+            timeseries, centroids, midtimes, background = timeseries[ncutframes/binsize:], centroids[ncutframes/binsize:], midtimes[ncutframes/binsize:], background[ncutframes/binsize:]
 
             # Don't bin the lightcruve right away, we need to get the errors first
             lc_unbinned = lightcurve_red*MJysr2lelectrons
@@ -339,12 +338,12 @@ for m in range(len(PP)):
 
             # Bin the lightcurves and timeseries
             #lightcurve_red = custom_bin(lightcurve_red, binsize_methods_params[l])
-            timeseries_red = custom_bin(timeseries_red, binsize)
-            centroids_red = custom_bin(centroids_red, binsize)
-            midtimes_red = custom_bin(midtimes_red, binsize)
-            background_red = custom_bin(background_red, binsize)
+            timeseries = custom_bin(timeseries_red, binsize)
+            centroids = custom_bin(centroids_red, binsize)
+            midtimes = custom_bin(midtimes_red, binsize)
+            background = custom_bin(background_red, binsize)
 
-            timeseries, centroids, midtimes, background = timeseries_red[ncutframes/binsize:], centroids_red[ncutframes/binsize:], midtimes_red[ncutframes/binsize:], background_red[ncutframes/binsize:]
+            timeseries, centroids, midtimes, background = timeseries[ncutframes/binsize:], centroids[ncutframes/binsize:], midtimes[ncutframes/binsize:], background[ncutframes/binsize:]
 
             # Don't bin the lightcruve right away, we need to get the errors first
             lc_unbinned = lightcurve_red*MJysr2lelectrons
@@ -353,8 +352,10 @@ for m in range(len(PP)):
             # Bin the lightcurve and propagate the binning to the errors
             # Just taking the average of the errors would result in the errors being way too large for each of the datapoints
             # Shld actually check this by plotting it
-            lc = custom_bin(lc_unbinned[ncutframes:], binsize)
-            lcerr = custom_bin(lcerr_unbinned[ncutframes:], binsize, error = True)
+            lc = custom_bin(lc_unbinned, binsize)
+            lcerr = custom_bin(lcerr_unbinned, binsize, error = True)
+            lc, lcerr = lc[ncutframes/binsize:], lcerr[ncutframes/binsize:]
+
             scale = np.median(lc[:int(100/binsize)])
             lc, lcerr = lc/scale, lcerr/scale
             t = (midtimes - midtimes[0])
