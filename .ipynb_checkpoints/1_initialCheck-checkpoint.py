@@ -159,8 +159,8 @@ for m in range(len(AORs)):
                    radius_photom = photom_radius,
                    sigma_clip_phot = 4, iters_photom = 2, nframes_photom=30,
                    size_bkg_box = bkg_boxsize, radius_bkg_ann = bkg_annradius, size_bkg_ann = bkg_annsize,
-                   size_cent_bary = cent_sizebary, passenger57 = True)
-
+                   size_cent_bary = cent_sizebary, passenger57 = True,
+                   quiet = False, plot = True, AOR = AOR, planet = planet, channel = channel, foldext=foldext)
 
     lc = lightcurve_red
     lcerr = np.sqrt(lc)

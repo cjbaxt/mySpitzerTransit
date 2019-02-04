@@ -120,7 +120,7 @@ for m in range(len(PP)):
     except:
         prior_coeffs = []
 
-    if len(prior_coeffs) > 1.:
+    if len(prior_coeffs) >= 1.:
         gaussian_priors = True
     else:
         gaussian_priors = False

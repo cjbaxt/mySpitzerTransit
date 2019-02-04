@@ -45,7 +45,7 @@ foldext = raw_input("Provide folder extension (hit ENTER for None): ")
 
 # Open a file to save the best pipeline parameters to
 f = open("{1}/PhD/SpitzerData/{0}/pipelineParams_{0}.txt".format(planet, os.getenv('HOME')), 'w')
-f.write("method, AOR, channel, chi2, bgk_method, bkg_boxsize, bkg_annradius, bkg_annsize, cent_method, cent_params, photom_radius \n")
+f.write("method, AOR, channel, chi2, bgk_method, bkg_boxsize, bkg_annradius, bkg_annsize, cent_method, cent_params, photom_radius, binsize \n")
 
 for m in range(len(AORs)):
 
@@ -161,10 +161,8 @@ for m in range(len(AORs)):
     timeseries_badpix = fast_bad_pix_mask(timeseries, sigma_badpix, nframes)
 
     #Background optimisation methods
-    bkg_methods_labels = ["Hist", "Box_2", "Box_4"
-                   ]
-    bkg_methods = ["Histogram","Box", "Box"
-                   ]
+    bkg_methods_labels = ["Hist", "Box_2", "Box_4"] #["Ann_6/4","Hist", "Box_2", "Box_4"]
+    bkg_methods = ["Histogram","Box", "Box"]
     bkg_methods_params = [[None,None,None], [2,None,None], [4,None,None]] #box_size, ann_radius, ann_size
 
     #Centroid optimisation methods
@@ -174,9 +172,9 @@ for m in range(len(AORs)):
 
     #Aperture Photometry Optimisation methods
     if channel == 'ch1':
-        photom_methods_params = np.arange(2.25, 4.5, 0.25).tolist()
+        photom_methods_params = np.arange(1., 2.5, 0.25).tolist()
     elif channel == 'ch2':
-        photom_methods_params = np.arange(2.25, 4.5, 0.25).tolist()
+        photom_methods_params = np.arange(1., 2.5, 0.25).tolist()
 
     # Bin size Optimisation methoda
     binsize_methods_params = [1, 4, 16, 64]
@@ -253,8 +251,8 @@ for m in range(len(AORs)):
                         else:
                             pass
 
-                        print coeffs_dict_poly
-                        print coeffs_tuple_poly
+                        #print coeffs_dict_poly
+                        #print coeffs_tuple_poly
 
                         #POLYNOMIAL
                         result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, t, x, y, lc, eclipse = eclipse)

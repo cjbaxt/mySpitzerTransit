@@ -73,7 +73,7 @@ class read_files():
 
         #Create timeseries for full mode
         elif naxis == 2:
-            data = np.ndarray(len(files),naxis2,naxis1)
+            data = np.ndarray((len(files),naxis2,naxis1))
             times = np.ndarray(data.shape)
 
             for i in range(len(files)):

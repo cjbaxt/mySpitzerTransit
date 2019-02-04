@@ -194,7 +194,7 @@ for i in range(len(PP)):
         raise ValueError("Trying to fix period without giving an error!")
 
 
-    if len(prior_coeffs) > 1.:
+    if len(prior_coeffs) >= 1.:
         gaussian_priors = True
     else:
         gaussian_priors = False
@@ -224,7 +224,7 @@ for i in range(len(PP)):
     cent_method = PP[i][8]
     cent_sizebary = None if PP[i][9] == 'None' else int(PP[i][9])
     photom_radius = float(PP[i][10])
-    binsize = int(1)
+    binsize = int(PP[i][11])
 
     datapath = "{3}/PhD/SpitzerData/{0}/{1}/{2}/bcd/".format(planet,AOR,channel, os.getenv('HOME'))
 
@@ -381,7 +381,8 @@ for i in range(len(PP)):
                           'Background Params': [bkg_boxsize, bkg_annradius, bkg_annsize],
                           'Centroiding Method': cent_method,
                           'Centroiding Params': cent_sizebary,
-                          'Aperture Size': photom_radius}
+                          'Aperture Size': photom_radius,
+                          'Binsize': binsize}
 
         datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
                     'midtimes':t, 'x':x, 'y':y, 'background':bkg,
@@ -490,6 +491,7 @@ for i in range(len(PP)):
 
         # Run MCMC
         bounds = make_bounds(coeffs_tuple_PLD, fix_coeffs_PLD, t)
+        print bounds
         data = (t, Pns, lc, newlcerr, bounds, coeffs_dict_PLD, coeffs_tuple_PLD,
         fix_coeffs_PLD, batman_params_PLD, PLD_params, gaussian_priors, prior_coeffs, eclipse)
         sampler, stats['acceptance fraction'] = mcmc_PLD(popt_PLD, data, nwalkers = nwalkers, burnin_steps = burninsteps, production_steps = runsteps, ret = True)
@@ -507,7 +509,7 @@ for i in range(len(PP)):
                           'Aperture Size': photom_radius}
 
         datared = {'lc':lc, 'lcerr':newlcerr, 'centroids': centroids,
-                    'midtimes':t, 'Pns':Pns, 'background':bkg,
+                    'norm midtimes':t, 'Pns':Pns, 'background':bkg, 'midtimes': midtimes,
                     'timeseries':timeseries, 'scale': scale}
 
         labels = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]

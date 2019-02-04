@@ -1,5 +1,8 @@
 from timeseries_routines import *
 from astropy.io import fits
+from astropy.convolution import convolve, Box1DKernel
+
+
 import numpy as np
 import glob, os, sys, time
 import matplotlib.pyplot as plt
@@ -148,8 +151,8 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
         if gaussian_priors:
             for param in prior_params:
                 ind = np.where(np.array(fittable_coeffs_labels) == param)[0][0]
-                bounds[0][ind] = coeffs_dict[param] - coeffs_dict['{}_err'.format(param)]
-                bounds[1][ind] = coeffs_dict[param] + coeffs_dict['{}_err'.format(param)]
+                bounds[0][ind] = coeffs_dict[param] - 10.*coeffs_dict['{}_err'.format(param)]
+                bounds[1][ind] = coeffs_dict[param] + 10.*coeffs_dict['{}_err'.format(param)]
 
         return bounds
 
@@ -194,8 +197,8 @@ def make_bounds(coeffs_tuple, fix_coeffs, t=None, fix_coeffs_channels = None, no
         if gaussian_priors:
             for param in prior_params:
                 ind = np.where(np.array(fittable_coeffs_labels) == param)[0][0]
-                bounds[0][ind] = coeffs_dict[param] - coeffs_dict['{}_err'.format(param)]
-                bounds[1][ind] = coeffs_dict[param] + coeffs_dict['{}_err'.format(param)]
+                bounds[0][ind] = coeffs_dict[param] - 10.*coeffs_dict['{}_err'.format(param)]
+                bounds[1][ind] = coeffs_dict[param] + 10.*coeffs_dict['{}_err'.format(param)]
 
         return bounds
 
@@ -611,7 +614,7 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
                x0guess = None, y0guess = None,
                size_bkg_box = None, radius_bkg_ann = None, size_bkg_ann = None,
                size_cent_bary = None, quiet = False,  passenger57 = False,
-               plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = '', ret = False):
+               plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = '', ret = False, smoothingwidth = None):
                # Must be sigma_clip_phot because function is called sigma_clip_photom!!!
     """
     timeseries = original timeseries from the first part of the pipeline
@@ -670,6 +673,24 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
 
     #Clip barycenter centroids twice
     timeseries, centroids, midtimes, background = sigma_clip_centroid(timeseries, centroids, midtimes, background, sigma_clip_cent, iters_cent, nframes_cent, quiet = quiet, plot = plot, AOR = AOR, planet = planet, channel = channel,sysmethod=sysmethod, foldext=foldext)
+
+    # Smothing
+    if smoothingwidth != None:
+        print "smoothing centroids"
+        print centroids.shape
+        x,y = centroids.T[0], centroids.T[1]
+        smoothx = convolve(centroids.T[0], Box1DKernel(smoothingwidth), boundary='extend')
+        smoothy = convolve(centroids.T[1], Box1DKernel(smoothingwidth), boundary='extend')
+        centroids = np.array([smoothx,smoothy]).T
+
+        fig, ax = plt.subplots(2, 1, figsize=(16, 5))
+
+        ax[0].plot(x, c = 'C0')
+        ax[1].plot(y, c = 'C0')
+        ax[0].plot(smoothx, c = 'C1')
+        ax[1].plot(smoothy, c = 'C1')
+        plt.show()
+        print centroids.shape
 
     #Aperture photometry to create lightcurve
     lightcurve = aperture_photom(timeseries, centroids, radius_photom, quiet = quiet, foldext=foldext)
@@ -1312,6 +1333,33 @@ def mcmc_PLD(initial, data, nwalkers = 200, burnin_steps = 1000, production_step
     else:
         return sampler
 
+
+def mcmc_gp(initial, data, nwalkers = 200, burnin_steps = 1000, production_steps = 2000, plot = False, ret = False):
+
+    print "\nStarting MCMC..."
+
+    ndim = len(initial)
+    p0 = [np.array(initial) + 1e-8 * np.random.randn(ndim)
+          for i in xrange(nwalkers)]
+
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_gp, args=data)
+
+    print("\t Running burn-in: {} steps".format(burnin_steps))
+    p0, lnp, _ = sampler.run_mcmc(p0, burnin_steps)
+    sampler.reset()
+
+    print("\t Running production: {} steps".format(production_steps))
+    p0, _, _ = sampler.run_mcmc(p0, production_steps)
+
+    frac = np.mean(sampler.acceptance_fraction)
+    print("\t Mean acceptance fraction: {0:.3f}"
+           .format(frac))
+
+    if ret:
+        return sampler, frac
+    else:
+        return sampler
+
 # Functions for MCMC parameter exploration of polynomial
 def lnprob_poly(theta, t, x,y, lc, lcerrs, bounds,
                coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, poly_params,
@@ -1764,7 +1812,9 @@ def mcmc_results(sampler, popt, t, lc, lcerr, x, y, Pns, background,
 def weightedMean(averages, stddevs):
 
     """Function to calculate the weighted mean and standard deviation of parameters,
-    Works for array of parameters of individual."""
+    Works for array of parameters or individual.
+
+    Need to change this function to work for percentiiles insteadoof just standard deviation"""
 
     ndatapoints = averages.shape[0]
 
