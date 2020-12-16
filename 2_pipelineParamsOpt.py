@@ -156,7 +156,7 @@ for m in range(len(AORs)):
             coeffs_dict_poly['t0'], coeffs_dict_PLD['t0'] = float(t0s[m]), float(t0s[m])
 
     #Fix bad pixles
-    sigma_badpix = 4
+    sigma_badpix = 5
     nframes = 30
     timeseries_badpix = fast_bad_pix_mask(timeseries, sigma_badpix, nframes)
 
@@ -174,12 +174,12 @@ for m in range(len(AORs)):
 
     #Aperture Photometry Optimisation methods
     if channel == 'ch1':
-        photom_methods_params = np.arange(2.25, 4.5, 0.25).tolist()
+        photom_methods_params = np.arange(2.0, 2.75, 0.25).tolist()
     elif channel == 'ch2':
-        photom_methods_params = np.arange(2.25, 4.5, 0.25).tolist()
+        photom_methods_params = np.arange(2.0, 2.75, 0.25).tolist()
 
     # Bin size Optimisation methoda
-    binsize_methods_params = [1, 4, 16, 64]
+    binsize_methods_params = [1]#], 4, 16, 64]
 
     # #Background optimisation methods
     # bkg_methods_labels = ["Box_2"]
@@ -392,8 +392,8 @@ labels_PLD = [key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD]
 labels_poly = [ key for key in coeffs_tuple_poly if key not in fix_coeffs_poly]
 
 # Make diagnostic plots of the pipeline parameters
-for m in range(len(AORs)):
-    AOR = AORs[m]
-    channel = channels[m]
-    pipelineOptPlots(planet, channel, 'poly', AOR, labels_poly, saveplots = True, foldext = foldext)
-    pipelineOptPlots(planet, channel, 'PLD', AOR, labels_PLD, saveplots = True, foldext = foldext)
+# for m in range(len(AORs)):
+#     AOR = AORs[m]
+#     channel = channels[m]
+#     pipelineOptPlots(planet, channel, 'poly', AOR, labels_poly, saveplots = True, foldext = foldext)
+#     pipelineOptPlots(planet, channel, 'PLD', AOR, labels_PLD, saveplots = True, foldext = foldext)

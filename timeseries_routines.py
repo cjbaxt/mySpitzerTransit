@@ -73,7 +73,7 @@ class read_files():
 
         #Create timeseries for full mode
         elif naxis == 2:
-            data = np.ndarray(len(files),naxis2,naxis1)
+            data = np.ndarray((len(files),naxis2,naxis1))
             times = np.ndarray(data.shape)
 
             for i in range(len(files)):
@@ -528,15 +528,17 @@ def bck_subtract(timeseries, method, positions=None, radius=None, size=None, box
         plt.close()
 
         # This doesn't work because we have discarded some of the data before this step...
-        fig3, ax3 = plt.subplots()
-        composite_list = [bkg[k:k+64] for k in range(0,len(bkg), 64)]
-        summed_list = np.median(composite_list, axis=0)
-        ax3.plot(np.arange(len(summed_list)),summed_list, 'o', c=c)
-        ax3.plot(57, summed_list[57], 'o', c = c2 )
-        ax3.set_xlabel("Frame")
-        ax3.set_ylabel("Flux (image units)")
-        plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_bkgMedian.png".format(planet, AOR, channel, sysmethod, foldext, os.getenv('HOME')))
-        plt.close()
+        try:
+            fig3, ax3 = plt.subplots()
+            composite_list = [bkg[k:k+64] for k in range(0,len(bkg), 64)]
+            summed_list = np.median(composite_list, axis=0)
+            ax3.plot(np.arange(len(summed_list)),summed_list, 'o', c=c)
+            ax3.plot(57, summed_list[57], 'o', c = c2 )
+            ax3.set_xlabel("Frame")
+            ax3.set_ylabel("Flux (image units)")
+            plt.savefig("{5}/PhD/SpitzerTransits/{0}{4}/{0}_{1}_{2}_{3}_bkgMedian.png".format(planet, AOR, channel, sysmethod, foldext, os.getenv('HOME')))
+            plt.close()
+        except: pass
 
         # if method == 'Histogram':
         #     fig2, ax2 = plt.subplots()

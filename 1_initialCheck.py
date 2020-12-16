@@ -169,8 +169,7 @@ for m in range(len(AORs)):
     x, y = centroids_red[:,1], centroids_red[:,0]
     t = (midtimes_red - midtimes_red[0])
 
-    plt.plot(t)
-    plt.show()
+
     if (planet == 'Wasp13b') and (channel == 'ch1'):
         ind0 = find_nearest(t,0.190)
         ind1 = find_nearest(t,0.215)
@@ -213,6 +212,7 @@ for m in range(len(AORs)):
     popt = result.x
     labels_poly = [ key for key in coeffs_tuple_poly if key not in fix_coeffs_poly ]
     print tabulate([labels_poly, popt])
+    print batman_params_poly.__dict__
     plot_lightcurve(t,  lc, lcerr, popt, coeffs_dict_poly, coeffs_tuple_poly, fix_coeffs_poly, batman_params_poly, poly_params,
                         x=x,y=y, errors = False, binsize = 70,
                         name = planet, channel = channel, orbit = AOR, savefile = True, TT_hjd = None,
@@ -223,6 +223,7 @@ for m in range(len(AORs)):
     popt_PLD = result_PLD.x
     labels_PLD = [ key for key in coeffs_tuple_PLD if key not in fix_coeffs_PLD ]
     print tabulate([labels_PLD,popt_PLD])
+    print batman_params_PLD.__dict__
     plot_lightcurve(t,  lc, lcerr, popt_PLD, coeffs_dict_PLD, coeffs_tuple_PLD, fix_coeffs_PLD, batman_params_PLD, PLD_params,
                         Pns = Pns, errors = False, binsize = 70,
                         name = planet, channel = channel, orbit=AOR, savefile = True, TT_hjd = None,

@@ -81,6 +81,8 @@ def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
 
+
+
 def flatten(x):
     "Fucntion to flatten a list of lists of floats with undefined shape."
     if isinstance(x, collections.Iterable):
@@ -583,10 +585,10 @@ def BIC(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params
         x=None, y=None, Pns=None, method = None, eclipse = False):
     if method == 'PLD':
         chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params,Pns=Pns, method =method, eclipse = eclipse)
-        return np.sum(chi2) - len(popt)*np.log(len(lc))
+        return np.sum(chi2) + len(popt)*np.log(len(lc))
     elif method == 'poly':
         chi2 = chi(popt, t, lc, lcerr, coeffs_dict, coeffs_tuple, fix_coeffs, batman_params, params, x=x,y=y,method = method, eclipse = eclipse)
-        return np.sum(chi2) - len(popt)*np.log(len(lc))
+        return np.sum(chi2) + len(popt)*np.log(len(lc))
 
 def gelman_rubin(chain):
     ssq = np.var(chain, axis=1, ddof=1) # var for each walker
@@ -611,7 +613,7 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
                x0guess = None, y0guess = None,
                size_bkg_box = None, radius_bkg_ann = None, size_bkg_ann = None,
                size_cent_bary = None, quiet = False,  passenger57 = False,
-               plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = '', ret = False):
+               plot = False, AOR = None, planet = None, channel = None, sysmethod=None, foldext = '', ret = False, binsize = 1):
                # Must be sigma_clip_phot because function is called sigma_clip_photom!!!
     """
     timeseries = original timeseries from the first part of the pipeline
@@ -655,6 +657,12 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
         timeseries, stats['Bad pix %'] = fast_bad_pix_mask(timeseries, sigma_badpix, nframes_badpix, quiet = quiet, foldext=foldext, ret = ret)
     else:
         timeseries = fast_bad_pix_mask(timeseries, sigma_badpix, nframes_badpix, quiet = quiet, foldext=foldext, ret = ret)
+
+    print "\nBinning timeseries by {}".format(binsize)
+    print "\t Shape of old timeseries: {}".format(timeseries.shape)
+    timeseries = custom_bin(timeseries, binsize)
+    print "\t Shape of new timeseries: {}".format(timeseries.shape)
+
     #Subtract background
     timeseries, background = bck_subtract(timeseries, method = method_bkg,
                                            boxsize = size_bkg_box,
@@ -670,6 +678,10 @@ def runFullPipeline(path, sigma_badpix, nframes_badpix,
 
     #Clip barycenter centroids twice
     timeseries, centroids, midtimes, background = sigma_clip_centroid(timeseries, centroids, midtimes, background, sigma_clip_cent, iters_cent, nframes_cent, quiet = quiet, plot = plot, AOR = AOR, planet = planet, channel = channel,sysmethod=sysmethod, foldext=foldext)
+
+    # #Test with fixing the centroids to the mean
+    # centroids[:, 0] = np.mean(centroids[:,0])
+    # centroids[:, 1] = np.mean(centroids[:,1])
 
     #Aperture photometry to create lightcurve
     lightcurve = aperture_photom(timeseries, centroids, radius_photom, quiet = quiet, foldext=foldext)

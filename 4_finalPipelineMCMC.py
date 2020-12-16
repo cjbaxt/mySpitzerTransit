@@ -96,7 +96,7 @@ for i in range(len(PP)):
         coeffs_tuple_poly = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
                        'f', 'g', 'h')
-        #fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
+        fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly_E')[0])][1].split(', ')
     else:
         coeffs_tuple_poly = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'K1', 'K2', 'K3', 'K4', 'K5',
@@ -109,7 +109,7 @@ for i in range(len(PP)):
             try:
                 if len(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')) == len(PP):
                     coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[i])
-                elif len(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')) == len(PP)/2:
+                elif len(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')) == len(PP)/2.:
                     coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1].split(', ')[i/2])
                 else:
                     coeffs_dict_poly[label] = float(inputData[int(np.where(inputData.T[0]==label)[0])][1])
@@ -119,15 +119,13 @@ for i in range(len(PP)):
                 except: # the limb darkening law
                     coeffs_dict_poly[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
-    # and a list of polynomial parameters to fix
-    fix_coeffs_poly = inputData[int(np.where(inputData.T[0]=='fixcoeffs_poly')[0])][1].split(', ')
 
     # Create a dictionary of the PLD paramters...
     if eclipse:
         coeffs_tuple_PLD = ('t_secondary', 'fp','per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
                        'g', 'h')
-        #fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
+        fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD_E')[0])][1].split(', ')
     else:
         coeffs_tuple_PLD = ('t0', 'per', 'rp', 'a', 'inc', 'ecc', 'w', 'u', 'limb_dark',
                        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
@@ -151,7 +149,7 @@ for i in range(len(PP)):
                     coeffs_dict_PLD[label] = inputData[int(np.where(inputData.T[0]==label)[0])][1]
 
     # and a list of PLD parameters to fix
-    fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
+    #fix_coeffs_PLD = inputData[int(np.where(inputData.T[0]=='fixcoeffs_PLD')[0])][1].split(', ')
 
     # Prior coefficients
     try:
@@ -162,13 +160,19 @@ for i in range(len(PP)):
     # Get the errors of the parameters that are used for calculating the depth and b
     try:
         if 'a' in fix_coeffs_PLD or 'a' in prior_coeffs:
+            print "well the updates have been saved"
+            #print len(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', '))
             if len(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')) == len(PP):
+                #print "a_err for each PP"
+                #print inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')[i]
                 coeffs_dict_poly['a_err'] = float(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')[i])
                 coeffs_dict_PLD['a_err'] = float(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')[i])
             elif len(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')) == len(PP)/2:
+                #print "a_err for each lightcurve"
                 coeffs_dict_poly['a_err'] = float(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')[i/2])
                 coeffs_dict_PLD['a_err'] = float(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1].split(', ')[i/2])
             else:
+                #print "only one a_err"
                 coeffs_dict_poly['a_err'] = float(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1])
                 coeffs_dict_PLD['a_err'] = float(inputData[int(np.where(inputData.T[0]=='a_err')[0])][1])
     except:
@@ -261,9 +265,24 @@ for i in range(len(PP)):
     t = (midtimes - midtimes[0])
     x, y = centroids[:,1], centroids[:,0]
 
-    # if planet == 'Wasp13b':
-    #     ind0 = find_nearest(t,0.19)
-    #     ind1 = find_nearest(t,0.22)
+    # if planet == 'Wasp13b' and channel == 'ch1':
+    #     # ind0 = find_nearest(t,0.19)
+    #     # ind1 = find_nearest(t,0.22)
+    #     ind0 = find_nearest(t,0.160)
+    #     ind1 = find_nearest(t,0.180)
+    #
+    #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
+    #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
+    #     x = np.delete(x, np.arange(ind0,ind1,1), axis = 0)
+    #     y = np.delete(y, np.arange(ind0,ind1,1), axis = 0)
+    #     t = np.delete(t, np.arange(ind0,ind1,1), axis = 0)
+    #     timeseries = np.delete(timeseries, np.arange(ind0,ind1,1), axis = 0)
+    #     centroids = np.delete(centroids, np.arange(ind0,ind1,1), axis = 0)
+    #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
+    #
+    # elif planet == 'Wasp131b' and channel == 'ch1':
+    #     ind0 = find_nearest(t,0.1)
+    #     ind1 = find_nearest(t,0.125)
     #
     #     lc = np.delete(lc, np.arange(ind0,ind1,1), axis = 0)
     #     lcerr = np.delete(lcerr, np.arange(ind0,ind1,1), axis = 0)
@@ -275,6 +294,19 @@ for i in range(len(PP)):
     #     background = np.delete(background, np.arange(ind0,ind1,1), axis = 0)
     # else:
     #     pass
+
+    if (planet == 'Wasp13b') and (channel == 'ch1'):
+        ind0 = find_nearest(t,0.160)
+        ind1 = find_nearest(t,0.180)
+
+        lcerr[ind0:ind1] = 1e6*lcerr[ind0:ind1]
+    elif planet == 'Wasp131b' and channel == 'ch1':
+        ind0 = find_nearest(t,0.11)
+        ind1 = find_nearest(t,0.125)
+
+        lcerr[ind0:ind1] = 1e6*lcerr[ind0:ind1]
+    else:
+        pass
 
     if eclipse:
         # N_orbits = np.floor((midtimes[0] - T0_bjd)/period)
@@ -318,9 +350,10 @@ for i in range(len(PP)):
         exclude0 = find_nearest(t,t0-Tdur/2.)
         exclude1 = find_nearest(t,t0+Tdur/2.)
 
-        newlc = np.delete(lightcurve, xrange(exclude0,exclude1))
+        newlc = np.delete(lc, xrange(exclude0,exclude1))
         scale = np.median(newlc)
-        lc, lcerr = lightcurve/scale, np.sqrt(lightcurve)/scale
+        #lc, lcerr = lightcurve/scale, np.sqrt(lightcurve)/scale
+        lc, lcerr = lc/scale, lcerr/scale
 
         print "\nNew scale poly: {}".format(scale)
 
@@ -395,12 +428,12 @@ for i in range(len(PP)):
 
 
         # Draw from gaussian
-        ld_coeffs = 3*np.random.normal(ldcoeffs, ldcoeffs_err, 500)
+        ld_coeffs = 3*np.random.normal(ldcoeffs, ldcoeffs_err, (500, len(ldcoeffs)))
         ldsamples_poly = np.zeros((len(ld_coeffs),len(coeffs_tuple_poly)- len(fix_coeffs_poly)))
 
         for i in range(len(ld_coeffs)):
 
-            coeffs_dict_poly['u'] = [ld_coeffs[i]]# Must be list!
+            coeffs_dict_poly['u'] = [ld_coeffs[i]][0]# Must be list!
 
             #POLYNOMIAL
             result, batman_params_poly, poly_params = fit_function_poly(coeffs_dict_poly,
@@ -443,9 +476,10 @@ for i in range(len(PP)):
         exclude0 = find_nearest(t,t0-Tdur/2.)
         exclude1 = find_nearest(t,t0+Tdur/2.)
 
-        newlc = np.delete(lightcurve, xrange(exclude0,exclude1))
+        newlc = np.delete(lc, xrange(exclude0,exclude1))
         scale = np.median(newlc)
-        lc, lcerr = lightcurve/scale, np.sqrt(lightcurve)/scale
+        #lc, lcerr = lightcurve/scale, np.sqrt(lightcurve)/scale
+        lc, lcerr = lc/scale, lcerr/scale
 
         print "\nNew scale PLD: {}".format(scale)
 
@@ -521,11 +555,11 @@ for i in range(len(PP)):
         leastsquares.append(popt_PLD)
 
         # Draw from gaussian
-        ld_coeffs = 3*np.random.normal(ldcoeffs, ldcoeffs_err, 500)
+        ld_coeffs = 3*np.random.normal(ldcoeffs, ldcoeffs_err, (500, len(ldcoeffs)))
         ldsamples_PLD = np.zeros((len(ld_coeffs),len(coeffs_tuple_PLD)- len(fix_coeffs_PLD)))
 
         for i in range(len(ld_coeffs)):
-            coeffs_dict_PLD['u'] = [ld_coeffs[i]]# Must be list!
+            coeffs_dict_PLD['u'] = [ld_coeffs[i]][0]# Must be list!
 
             #PLD
             result_PLD, batman_params_PLD, PLD_params, Pns = fit_function_PLD(coeffs_dict_PLD,
